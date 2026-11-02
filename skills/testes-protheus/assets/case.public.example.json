@@ -1,0 +1,20 @@
+{
+  "author": "daniel.montagna",
+  "synthetic_example": true,
+  "Username": "qa.user",
+  "ConfiguredDomain": null,
+  "LoginEnvironment": "qa",
+  "LoginForm": "as_provided",
+  "LoginPolicy": {"confirmed": false, "rules": {
+    "qa": {"allow_simple": true, "allow_domain": true, "require_confirmed_domain": false},
+    "production": {"allow_simple": false, "allow_domain": true, "require_confirmed_domain": true}
+  }},
+  "ReadOnlyRoutineVerified": false,
+  "InitialProgram": "",
+  "Date": "",
+  "Group": "",
+  "Branch": "",
+  "Routine": "",
+  "CheckField": "",
+  "ExpectedValue": ""
+}

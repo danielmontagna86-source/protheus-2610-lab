@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# plab-scan - varredura de segredos do Protheus 2610 Lab (Principio II / FR-023).
+# Nunca imprime valores de segredo: so onde e quantas ocorrencias.
+set -uo pipefail
+RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+GITLEAKS='zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f'
+falhas=0
+
+resultado() { # item ocorrencias detalhe
+  local st=OK; [ "$2" -gt 0 ] && { st=FALHOU; falhas=$((falhas + 1)); }
+  printf '%-6s %-52s ocorrencias=%s %s\n' "$st" "$1" "$2" "${3:-}"
+}
+
+# 1. gitleaks no historico git
+saida=$(docker run --rm -v "$RAIZ:/repo:ro" "$GITLEAKS" git /repo --redact --no-banner --exit-code 3 -v 2>&1); rc=$?
+if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then resultado 'gitleaks (historico git)' 1 "falha ao executar (rc=$rc)"
+else resultado 'gitleaks (historico git)' "$(grep -c '^Finding:' <<<"$saida" || true)"; fi
+
+# 2. .env.example sem valores sensiveis
+n=$(grep -cE '^\s*[A-Z0-9_]*(_PASSWORD|_TOKEN|_KEY|_SECRET)\s*=\s*\S' "$RAIZ/.env.example" || true)
+resultado '.env.example sem valores sensiveis' "$n"
+
+# 3. Valores reais das senhas do .env local
+valores=$(mktemp); trap 'rm -f "$valores"' EXIT
+if [ -f "$RAIZ/.env" ]; then
+  sed -nE 's/^\s*[A-Z0-9_]*(_PASSWORD|_TOKEN|_KEY|_SECRET)\s*=\s*(.+)$/\2/p' "$RAIZ/.env" \
+    | sed -E "s/^'(.*)'$/\1/; s/^\"(.*)\"$/\1/; s/\\\$\\\$/\$/g" | awk 'length >= 6' > "$valores"
+fi
+contar() { [ -s "$valores" ] && grep -cF -f "$valores" || echo 0; }
+resultado 'senhas do .env no historico git' "$(git -C "$RAIZ" log --all -p --no-color 2>/dev/null | contar)"
+resultado 'senhas do .env na imagem plab-lab (history/inspect)' \
+  "$( { docker history --no-trunc plab-lab:local; docker image inspect plab-lab:local; } 2>/dev/null | contar)"
+id=$(docker ps -q --filter label=com.docker.compose.project=plab-lab --filter label=com.docker.compose.service=lab)
+[ -n "$id" ] && resultado 'senhas do .env no inspect do container lab' "$(docker inspect "$id" | contar)"
+resultado 'senhas do .env nas evidencias (log/json/txt)' \
+  "$(find "$RAIZ/evidencias" -type f \( -name '*.log' -o -name '*.json' -o -name '*.out' -o -name '*.txt' \) -exec cat {} + 2>/dev/null | contar)"
+
+# 4. Nada sensivel versionado por engano
+n=$(git -C "$RAIZ" ls-files | grep -cE '(^|/)\.env$|secrets?\.env$|config\.json$|\.rpo$|\.ch$|appserver\.ini$|^evidencias/[^.]' || true)
+resultado 'arquivos proibidos versionados' "$n"
+
+# 5. Evidencias (capturas/baseline locais) nunca no historico publicavel
+n=$(git -C "$RAIZ" log --all --name-only --pretty=format: -- evidencias 2>/dev/null | grep -v -e '^$' -e '\.gitkeep$' | sort -u | wc -l)
+resultado 'evidencias no historico git (reescrever antes de publicar)' "$n"
+
+[ "$falhas" -gt 0 ] && { echo "plab scan: $falhas item(ns) com ocorrencias"; exit 1; }
+echo 'plab scan: zero ocorrencias'

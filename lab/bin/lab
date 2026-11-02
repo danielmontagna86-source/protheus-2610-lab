@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# lab - comandos do container de ferramentas do Protheus 2610 Lab.
+# Contrato: specs/001-protheus-2610-lab/contracts/lab-setup-cli.md
+set -euo pipefail
+
+PLAB_HOME=${PLAB_HOME:-/opt/plab}
+LAB_LIB="$PLAB_HOME/lab/bin/lib"
+
+# shellcheck source=SCRIPTDIR/lib/comum.sh
+. "$LAB_LIB/comum.sh"
+
+uso() {
+  cat <<'EOF'
+lab - Protheus 2610 Lab (container de ferramentas)
+  lab versions                  versoes de TIR, Chrome, chromedriver, advpls, Node
+  lab doctor <2610|2510>        diagnostico da release (DNS, portas, WebApp, REST)
+  lab compile <release> <fonte...>  compila no ambiente de compilacao da release
+  lab tir <release> <suite.py>  executa suite TIR com config temporaria
+  lab ui <2610|2510>            smoke de interface (Playwright) somente leitura
+  lab smoke <2610|2510>         doctor -> compile LABHELLO -> interface leitura -> PRONTO
+  lab setup [opcoes]            assistente de IA (Claude Code, Codex, ...)
+EOF
+}
+
+cmd=${1:-help}; shift || true
+case "$cmd" in
+  versions) exec "$LAB_LIB/versions.sh" "$@" ;;
+  doctor)   exec "$LAB_LIB/doctor.sh" "$@" ;;
+  compile)  exec "$LAB_LIB/compile.sh" "$@" ;;
+  tir)      exec "$LAB_LIB/tir.sh" "$@" ;;
+  ui)       exec "$LAB_LIB/ui.sh" "$@" ;;
+  smoke)    exec "$LAB_LIB/smoke.sh" "$@" ;;
+  setup)    exec "$PLAB_HOME/lab/setup/lab-setup.sh" "$@" ;;
+  help|-h|--help) uso ;;
+  *) uso; exit 2 ;;
+esac

@@ -1,0 +1,90 @@
+# Container de ferramentas do lab (project plab-lab): TIR, Chrome headless, advpls, CLIs de IA.
+# Alcanca as releases pela rede externa "plab" (appserver-2610, appserver-2510).
+# Sem docker.sock, sem pid host, sem privilegios extras.
+name: plab-lab
+
+services:
+  # Includes do Protheus (TOTVS) NAO sao redistribuidos pelo repositorio nem pela imagem lab:
+  # este servico copia, uma vez, os includes que ja vem na imagem AppServer 2610 baixada pelo
+  # proprio usuario. O pre-compilador do advpls roda NO CONTAINER LAB (Linux, sensivel a caixa)
+  # e pede PRTOPDEF.CH em maiusculas, entao cada arquivo ganha tambem um link em maiusculas.
+  # Verificado em 2026-11-02: sem os links, "Error C2090 File not found PRTOPDEF.CH".
+  includes-init:
+    image: ${PLAB_2610_IMG_APPSERVER:?defina PLAB_2610_IMG_APPSERVER no .env}
+    platform: linux/amd64
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        src=/protheus12/bin/appserver_deskflow/includes
+        if [ ! -f /dst/prtopdef.ch ]; then
+          cp -a "$$src/." /dst/
+        fi
+        cd /dst
+        for f in *; do
+          u=$$(printf '%s' "$$f" | tr '[:lower:]' '[:upper:]')
+          if [ "$$u" != "$$f" ] && [ ! -e "$$u" ]; then ln -s "$$f" "$$u"; fi
+        done
+        echo "includes-init: $$(ls | wc -l) entradas (originais + links maiusculos) em /dst"
+    volumes:
+      - includes:/dst
+    network_mode: none
+
+  lab:
+    build:
+      context: ..
+      dockerfile: lab/Dockerfile
+      args:
+        NODE_VERSION: ${PLAB_NODE:-22.23.4}
+        CHROME_VERSION: ${PLAB_CHROME:-156.0.8078.80}
+        TDS_LS_VERSION: ${PLAB_TDS_LS:-2.2.7}
+        TIR_VERSION: ${PLAB_TIR:-2.14.12}
+        PLAYWRIGHT_VERSION: ${PLAB_PLAYWRIGHT:-1.64.1}
+    image: plab-lab:local
+    init: true
+    restart: unless-stopped
+    shm_size: 1g
+    environment:
+      # Nomes e portas internas das releases (rede plab). Senhas: so pelo .env local.
+      PLAB_2610_HOST: appserver-2610
+      PLAB_2510_HOST: appserver-2510
+      PLAB_2610_ENV: ${PLAB_2610_ENV:-P2610}
+      PLAB_2610_ENV_COMPILA: ${PLAB_2610_ENV_COMPILA:-P2610_COMPILA}
+      PLAB_2510_ENV: ${PLAB_2510_ENV:-P2510}
+      PLAB_2510_ENV_COMPILA: ${PLAB_2510_ENV_COMPILA:-P2510D}
+      PLAB_ADMIN_USER: ${PLAB_ADMIN_USER:-Admin}
+      PLAB_REINICIAR_APOS_COMPILAR: ${PLAB_REINICIAR_APOS_COMPILAR:-2510}
+      PLAB_ENGPRO_COMMIT: ${PLAB_ENGPRO_COMMIT:-}
+      PLAB_EXEMPLOS_COMMIT: ${PLAB_EXEMPLOS_COMMIT:-}
+      PLAB_CLAUDE_CODE: ${PLAB_CLAUDE_CODE:-}
+      PLAB_CODEX: ${PLAB_CODEX:-}
+      PLAB_OPENCODE: ${PLAB_OPENCODE:-}
+      PLAB_GEMINI_CLI: ${PLAB_GEMINI_CLI:-}
+    depends_on:
+      includes-init: {condition: service_completed_successfully}
+    volumes:
+      - lab-home:/home/lab
+      - ../workspace:/workspace
+      - ../evidencias:/opt/plab/evidencias
+      - includes:/opt/plab-includes:ro
+    # Senhas chegam como arquivo em /run/secrets (nao aparecem em docker inspect).
+    secrets:
+      - plab_2610_admin_password
+      - plab_2510_admin_password
+    mem_limit: ${PLAB_MEM_LAB:-4g}
+    networks: [plab]
+
+secrets:
+  plab_2610_admin_password:
+    environment: PLAB_2610_ADMIN_PASSWORD
+  plab_2510_admin_password:
+    environment: PLAB_2510_ADMIN_PASSWORD
+
+volumes:
+  lab-home:
+  includes:
+
+networks:
+  plab:
+    external: true

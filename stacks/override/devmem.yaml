@@ -1,0 +1,16 @@
+# Override OPCIONAL: libera leitura de hardware (dmidecode) para License Server e AppServer.
+# Nao e necessario no lab: em 2026-11-02 o login e o menu da 2610 funcionaram sem ele
+# (Docker Desktop/WSL2); sem ele o log mostra "Can't read memory from /dev/mem", que e ruido.
+# Use somente se o License Server recusar licencas por falta de identificacao de hardware:
+#   docker compose --env-file .env -f stacks/2610/compose.yaml -f stacks/override/devmem.yaml up -d
+services:
+  license:
+    devices:
+      - "/dev/mem:/dev/mem"
+    cap_add:
+      - SYS_RAWIO
+  appserver:
+    devices:
+      - "/dev/mem:/dev/mem"
+    cap_add:
+      - SYS_RAWIO

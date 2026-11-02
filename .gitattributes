@@ -1,0 +1,20 @@
+# Scripts executados dentro de containers Linux: sempre LF.
+*.sh            text eol=lf
+plab            text eol=lf
+lab/bin/*       text eol=lf
+lab/Dockerfile  text eol=lf
+*.yaml          text eol=lf
+*.py            text eol=lf
+*.tmpl          text eol=lf
+
+# Scripts Windows: CRLF.
+*.ps1           text eol=crlf
+*.cmd           text eol=crlf
+
+# Fontes AdvPL/TLPP em CP1252 + CRLF: git nao converte nem reinterpreta bytes.
+*.prw           -text
+*.prx           -text
+*.tlpp          -text
+*.ch            -text
+*.aph           -text
+*.yml           text eol=lf

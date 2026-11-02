@@ -1,0 +1,143 @@
+# Protheus 12.1.2610 - stack isolada do lab (project plab-2610).
+# Imagens e portas vem do .env (ver .env.example). Os nomes postgresql-2610,
+# license-server-2610 e dbaccess-2610 sao exigidos pelos .ini das imagens e
+# existem aqui apenas como aliases de rede (sem container_name).
+name: plab-2610
+
+x-ulimits: &ulimits
+  core: {soft: -1, hard: -1}
+  nofile: {soft: 65536, hard: 65536}
+  stack: {soft: 1048576, hard: 1048576}
+
+x-logging: &logging
+  driver: json-file
+  options: {max-size: "10m", max-file: "3"}
+
+services:
+  db:
+    image: ${PLAB_2610_IMG_DB:?defina PLAB_2610_IMG_DB no .env}
+    platform: linux/amd64
+    user: root
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PLAB_2610_PORT_DB:-26432}:5432"
+    volumes:
+      # A imagem traz o cluster ja restaurado em /var/lib/postgresql/seed (PGDATA);
+      # o volume nomeado e preenchido com ele na primeira subida.
+      - pgdata:/var/lib/postgresql/seed
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -q"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    mem_limit: ${PLAB_MEM_DB:-2g}
+    logging: *logging
+    networks:
+      default:
+        aliases: [postgresql-2610]
+
+  license:
+    image: ${PLAB_2610_IMG_LICENSE:?defina PLAB_2610_IMG_LICENSE no .env}
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PLAB_2610_PORT_LICMON:-26020}:8020"
+    ulimits: *ulimits
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/5555"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    mem_limit: ${PLAB_MEM_LICENSE:-1g}
+    logging: *logging
+    networks:
+      default:
+        aliases: [license-server-2610]
+
+  dbaccess:
+    image: ${PLAB_2610_IMG_DBACCESS:?defina PLAB_2610_IMG_DBACCESS no .env}
+    platform: linux/amd64
+    restart: unless-stopped
+    ulimits: *ulimits
+    depends_on:
+      db: {condition: service_healthy}
+      license: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/7890"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    mem_limit: ${PLAB_MEM_DBACCESS:-1g}
+    logging: *logging
+    networks:
+      default:
+        aliases: [dbaccess-2610]
+
+  # O appserver.ini da imagem aponta P2610_COMPILA para /protheus12/P2610_COMPILA/APO0002, mas o
+  # AppServer Linux converte caminhos para minusculas e procura /protheus12/p2610_compila/apo0002
+  # (log: "Open APO failed"). Este servico roda uma vez e semeia o volume no caminho minusculo.
+  rpo-init:
+    image: ${PLAB_2610_IMG_APPSERVER:?defina PLAB_2610_IMG_APPSERVER no .env}
+    platform: linux/amd64
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        d=/dst/apo0002
+        if [ ! -f "$$d/tttm120.rpo" ]; then
+          mkdir -p "$$d"
+          cp -a /protheus12/P2610_COMPILA/APO0002/. "$$d/"
+          echo "rpo-init: RPO de compilacao semeado em p2610_compila/apo0002"
+        else
+          echo "rpo-init: RPO de compilacao ja existe, nada a fazer"
+        fi
+        ls -la "$$d"
+    volumes:
+      - rpo-compila:/dst
+    logging: *logging
+    network_mode: none
+
+  appserver:
+    image: ${PLAB_2610_IMG_APPSERVER:?defina PLAB_2610_IMG_APPSERVER no .env}
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      - APPSERVER_DATABASE=POSTGRES
+    ports:
+      - "127.0.0.1:${PLAB_2610_PORT_TCP:-26234}:1234"
+      - "127.0.0.1:${PLAB_2610_PORT_WEBAPP:-26321}:4321"
+      - "127.0.0.1:${PLAB_2610_PORT_REST:-26181}:8181"
+    volumes:
+      # RPO do ambiente de compilacao (P2610_COMPILA), no caminho minusculo que o AppServer usa.
+      - rpo-compila:/protheus12/p2610_compila
+    ulimits: *ulimits
+    depends_on:
+      dbaccess: {condition: service_healthy}
+      rpo-init: {condition: service_completed_successfully}
+    healthcheck:
+      # WebApp e tambem a interface nova (/app-root), servida so na porta multiprotocolo.
+      test: ["CMD", "bash", "-c", "curl -sf -o /dev/null -m 5 http://127.0.0.1:4321/ && curl -sf -o /dev/null -m 5 http://127.0.0.1:1234/app-root/"]
+      interval: 15s
+      timeout: 8s
+      retries: 40
+      start_period: 120s
+    mem_limit: ${PLAB_MEM_APPSERVER:-6g}
+    logging: *logging
+    networks:
+      default:
+        aliases: [appserver]
+      plab:
+        aliases: [appserver-2610]
+
+volumes:
+  pgdata:
+  rpo-compila:
+
+networks:
+  default:
+  plab:
+    external: true

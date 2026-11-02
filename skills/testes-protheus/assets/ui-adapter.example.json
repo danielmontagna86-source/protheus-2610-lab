@@ -1,0 +1,14 @@
+{
+  "author": "daniel.montagna",
+  "synthetic_example": true,
+  "transport": "unknown",
+  "login_renderer": "unknown",
+  "business_renderer": "unknown",
+  "runtime_identity_verified": false,
+  "tir_compatibility_verified": false,
+  "username_example": "qa.user",
+  "domain": null,
+  "controls": [{"label": "Codigo", "context": "A_MAPEAR", "visible_matches": null, "sensitive": false}],
+  "versions": {"webapp": "A_CONFIRMAR", "tir": "A_CONFIRMAR", "browser": "A_CONFIRMAR"},
+  "execution_status": "NAO_EXECUTADO"
+}

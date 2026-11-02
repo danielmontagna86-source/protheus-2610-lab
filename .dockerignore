@@ -1,0 +1,13 @@
+.git
+.env
+*.env
+!.env.example
+evidencias/
+workspace/
+volume/
+volumes/
+**/__pycache__/
+**/*.pyc
+.claude/
+.specify/
+specs/

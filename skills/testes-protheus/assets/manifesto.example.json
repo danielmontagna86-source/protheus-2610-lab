@@ -1,0 +1,14 @@
+{
+  "author": "daniel.montagna",
+  "synthetic_example": true,
+  "run_id": "EXEMPLO-SEM-EXECUCAO",
+  "timezone": "America/Sao_Paulo",
+  "scope": ["planejar"],
+  "environment": {"purpose": "QA", "identity_verified": false, "erp_branch": "FICTICIA", "source_branch": "A_MAPEAR"},
+  "adapter": {"version": "A_DEFINIR", "source_view_verified": false, "source_document_field": "A_MAPEAR", "key_fields": ["empresa", "filial", "operacao", "fornecedor", "loja", "prefixo", "numero", "parcela", "tipo"]},
+  "failure_policy": "bloquear_dependentes_incerto_continuar_verificacoes_independentes",
+  "timeouts_seconds": {"poll": 10, "availability": null, "stage": null},
+  "mass": {"producer": "EXEMPLO", "planned_operations": 0, "actual_operations": 0, "new_positive_plans": 0, "inherited_zero_plans": 0, "business_keys": []},
+  "execution": {"started_at": null, "finished_at": null, "status": "NAO_EXECUTADO", "errors": [], "evidence": []},
+  "review": {"state": "NAO_SUBMETIDO", "reviewer": null, "artifact_hashes": {}}
+}

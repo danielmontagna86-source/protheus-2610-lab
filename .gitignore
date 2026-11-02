@@ -1,0 +1,28 @@
+# Segredos e configuracao local (nunca versionar)
+.env
+*.env
+!.env.example
+secrets/
+**/secrets.env
+config.json
+!templates/**/config.json
+
+# Dados de runtime das stacks
+volume/
+volumes/
+evidencias/*
+!evidencias/.gitkeep
+
+# Python / ferramentas
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# SO / editores
+Thumbs.db
+.DS_Store
+.vscode/
+
+# Workspace do usuario montado no container lab
+workspace/

@@ -1,0 +1,11 @@
+{
+  "author": "daniel.montagna",
+  "synthetic_example": true,
+  "scope": "EXEMPLO_EMPRESARIAL_NAO_PADRAO_UNIVERSAL_TOTVS",
+  "confirmation_source": "Responsável deve confirmar política e domínio do seu ambiente",
+  "confirmed": false,
+  "rules": {
+    "qa": {"allow_simple": true, "allow_domain": true, "require_confirmed_domain": false},
+    "production": {"allow_simple": false, "allow_domain": true, "require_confirmed_domain": true}
+  }
+}

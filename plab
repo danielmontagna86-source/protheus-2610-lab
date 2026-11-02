@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+# plab - wrapper do host para o Protheus 2610 Lab (Linux/WSL/macOS).
+# Contrato: specs/001-protheus-2610-lab/contracts/plab-cli.md
+set -euo pipefail
+
+RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REDE=plab
+RELEASES=(2610 2510)
+
+sair() { local cod=$1; shift; [ $# -gt 0 ] && echo "plab: $*" >&2; exit "$cod"; }
+
+ler_env() {
+  [ -f "$RAIZ/.env" ] || sair 3 "arquivo .env ausente. Copie .env.example para .env e preencha as senhas."
+  set -a
+  # shellcheck disable=SC1091
+  . "$RAIZ/.env"
+  set +a
+}
+
+testar_docker() { docker info --format '{{.ServerVersion}}' >/dev/null 2>&1 || sair 3 "Docker nao respondeu."; }
+
+arquivo_compose() {
+  case "$1" in
+    2610) echo "$RAIZ/stacks/2610/compose.yaml" ;;
+    2510) echo "$RAIZ/stacks/2510/compose.yaml" ;;
+    lab)  echo "$RAIZ/lab/compose.yaml" ;;
+    *) sair 2 "alvo invalido: '$1' (use 2610, 2510, lab ou all)" ;;
+  esac
+}
+
+compose() { local alvo=$1; shift; docker compose --env-file "$RAIZ/.env" -f "$(arquivo_compose "$alvo")" "$@"; }
+
+alvos() {
+  case "${1:-}" in
+    all) echo "${RELEASES[*]} lab" ;;
+    "") sair 2 "informe o alvo: 2610, 2510, lab ou all" ;;
+    *) arquivo_compose "$1" >/dev/null; echo "$1" ;;
+  esac
+}
+
+garantir_rede() {
+  if docker network inspect "$REDE" >/dev/null 2>&1; then echo "rede $REDE ja existe"
+  else docker network create "$REDE" >/dev/null || sair 3 "falha ao criar a rede $REDE"; echo "rede $REDE criada"; fi
+}
+
+projeto_rodando() { [ -n "$(docker ps -q --filter "label=com.docker.compose.project=plab-$1")" ]; }
+
+portas_do_alvo() { compgen -v | grep "^PLAB_${1}_PORT_" | sort || true; }
+
+porta_em_uso() {
+  if command -v ss >/dev/null 2>&1; then ss -ltn "sport = :$1" | tail -n +2 | grep -q .
+  elif command -v lsof >/dev/null 2>&1; then lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
+  else (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; fi
+}
+
+cmd_ports() {
+  for alvo in "${RELEASES[@]}"; do
+    for var in $(portas_do_alvo "$alvo"); do
+      local p=${!var} estado=livre
+      if porta_em_uso "$p"; then
+        if projeto_rodando "$alvo"; then estado="em uso (provavelmente plab-$alvo)"; else estado="OCUPADA"; fi
+      fi
+      printf '%-24s %6s  %s\n' "$var" "$p" "$estado"
+    done
+  done
+}
+
+checar_portas() {
+  local alvo=$1 ocupadas=""
+  [ "$alvo" = lab ] && return 0
+  projeto_rodando "$alvo" && return 0
+  for var in $(portas_do_alvo "$alvo"); do
+    porta_em_uso "${!var}" && ocupadas+=$'\n'"  $var=${!var} ocupada"
+  done
+  [ -z "$ocupadas" ] || sair 4 "portas ocupadas; ajuste no .env:$ocupadas"
+}
+
+# Evita a troca obrigatoria de senha do Admin quando a base da imagem passa do prazo da
+# politica (caso da 2510, senha trocada em 12/10/2025). Nao altera a senha. A credencial do
+# banco e a padrao de desenvolvimento embutida na imagem (rede interna).
+renovar_senha_admin() {
+  local alvo=$1
+  compose "$alvo" cp "$RAIZ/stacks/sql/renova-senha-admin.sql" db:/tmp/plab-renova-senha.sql >/dev/null 2>&1
+  if compose "$alvo" exec -T -e PGPASSWORD=protheus db psql -h 127.0.0.1 -U protheus -d protheus -q -A -t -f /tmp/plab-renova-senha.sql >/dev/null 2>&1; then
+    echo "senha do Admin renovada (sem alteracao) em plab-$alvo"
+  else
+    echo "plab: aviso: renovacao da senha do Admin falhou em plab-$alvo" >&2
+  fi
+}
+
+cmd_up() {
+  testar_docker; garantir_rede
+  for alvo in $(alvos "${1:-}"); do
+    checar_portas "$alvo"
+    echo "subindo plab-$alvo..."
+    compose "$alvo" up -d --wait --wait-timeout 900 || sair 5 "plab-$alvo nao ficou healthy. Veja: ./plab logs $alvo"
+    [ "$alvo" = lab ] || renovar_senha_admin "$alvo"
+  done
+  cmd_status "${1:-}"
+}
+
+cmd_down() {
+  testar_docker
+  local alvo_arg=$1 volumes=${2:-}
+  for alvo in $(alvos "$alvo_arg"); do
+    local args=(down)
+    if [ "$volumes" = "--volumes" ]; then
+      read -r -p "Isto APAGA os dados de plab-$alvo. Digite '$alvo' para confirmar: " conf
+      [ "$conf" = "$alvo" ] || { echo "cancelado para $alvo"; continue; }
+      args+=(--volumes)
+    fi
+    compose "$alvo" "${args[@]}" || sair 5 "falha no down de plab-$alvo"
+  done
+}
+
+cmd_status() {
+  testar_docker
+  local lista
+  if [ -n "${1:-}" ]; then lista=$(alvos "$1"); else lista="${RELEASES[*]} lab"; fi
+  for alvo in $lista; do
+    echo "== plab-$alvo"
+    compose "$alvo" ps --format 'table {{.Service}}\t{{.State}}\t{{.Health}}\t{{.Ports}}' || true
+    if [ "$alvo" != lab ]; then
+      # WebApp pela porta multiprotocolo: no 26.x o /app-root (login PO UI) so existe nela.
+      local tcp="PLAB_${alvo}_PORT_TCP" rest="PLAB_${alvo}_PORT_REST"
+      echo "   WebApp:  http://127.0.0.1:${!tcp}/webapp/"
+      echo "   TCP/TDS: 127.0.0.1:${!tcp}   REST: http://127.0.0.1:${!rest}/rest/"
+    fi
+  done
+}
+
+cmd_lab() {
+  testar_docker
+  projeto_rodando lab || sair 3 "container lab parado. Rode: ./plab up lab"
+  # -T (sem TTY) quando nao ha terminal; o setup interativo precisa de TTY.
+  local tty=(-T); [ -t 0 ] && [ "${1:-}" = setup ] && tty=()
+  docker compose --env-file "$RAIZ/.env" -f "$(arquivo_compose lab)" exec "${tty[@]}" lab lab "$@"
+}
+
+esperar_healthy() { # alvo servico segundos
+  local id fim
+  id=$(compose "$1" ps -q "$2"); fim=$((SECONDS + ${3:-600}))
+  while [ $SECONDS -lt $fim ]; do
+    [ "$(docker inspect "$id" --format '{{.State.Health.Status}}' 2>/dev/null)" = healthy ] && return 0
+    sleep 5
+  done
+  return 1
+}
+
+# Reinicia so o AppServer da release. Na 2510 e o jeito de trazer de volta o /app-root depois de uma
+# compilacao (o AppServer 24.3 religa o REST na porta do servidor interno da interface nova).
+cmd_restart() {
+  case "${1:-}" in 2610|2510) ;; *) sair 2 "use: restart 2610|2510" ;; esac
+  testar_docker
+  echo "reiniciando o appserver de plab-$1..."
+  compose "$1" restart appserver || sair 5 "falha ao reiniciar o appserver de plab-$1"
+  sleep 20
+  esperar_healthy "$1" appserver 600 || sair 5 "appserver de plab-$1 nao ficou healthy"
+  cmd_lab doctor "$1"
+}
+
+cmd_smoke() {
+  case "${1:-}" in 2610|2510) ;; *) sair 2 "use: smoke 2610|2510" ;; esac
+  cmd_lab smoke "$1" || exit $?
+  if [[ " ${PLAB_REINICIAR_APOS_COMPILAR:-2510} " == *" $1 "* ]]; then
+    echo "[5/5] recuperacao      reiniciando appserver $1 (compilacao derruba o /app-root nesta release)"
+    cmd_restart "$1" || { echo "FALHOU $1 no passo 5/recuperacao"; exit 15; }
+    echo "[5/5] recuperacao      OK   (interface nova de volta apos a compilacao)"
+  fi
+}
+
+ajuda() {
+  cat <<'EOF'
+plab - Protheus 2610 Lab
+  ./plab net                       cria a rede "plab" (idempotente)
+  ./plab ports                     portas configuradas e se estao livres
+  ./plab up <2610|2510|lab|all>    sobe e aguarda healthy
+  ./plab down <alvo> [--volumes]   derruba (com --volumes apaga dados, pede confirmacao)
+  ./plab status [alvo]             estado e URLs
+  ./plab logs <alvo> [servico]
+  ./plab smoke <2610|2510>         smoke dentro do container lab
+  ./plab restart <2610|2510>       reinicia o AppServer e roda o doctor
+  ./plab setup                     assistente "lab setup"
+  ./plab scan                      varredura de segredos
+EOF
+}
+
+cmd=${1:-help}; shift || true
+case "$cmd" in
+  net)    testar_docker; garantir_rede ;;
+  ports)  ler_env; cmd_ports ;;
+  up)     ler_env; cmd_up "${1:-}" ;;
+  down)   ler_env; cmd_down "${1:-}" "${2:-}" ;;
+  status) ler_env; cmd_status "${1:-}" ;;
+  logs)   ler_env; testar_docker; compose "${1:?alvo}" logs --tail 200 ${2:+"$2"} ;;
+  smoke)  ler_env; cmd_smoke "${1:-}" ;;
+  restart) ler_env; cmd_restart "${1:-}" ;;
+  setup)  ler_env; cmd_lab setup ;;
+  scan)   exec "$RAIZ/lab/bin/plab-scan" ;;
+  help|-h|--help) ajuda ;;
+  *) ajuda; exit 2 ;;
+esac

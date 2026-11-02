@@ -1,0 +1,43 @@
+# Regras do workspace Protheus 2610 Lab (geradas por "lab setup")
+
+Este workspace roda no container de ferramentas do Protheus 2610 Lab, sobre o **padrão TOTVS**
+das releases 12.1.2610 e 12.1.2510. Release alvo configurada: **{{RELEASE}}**.
+
+## Regras
+
+1. **Padrão TOTVS, nunca produção.** O lab usa a base padrão de demonstração (empresa 99, filial 01).
+   Não aponte para servidores, bases ou credenciais de empresa. Nada de tabelas Z*, parâmetros
+   customizados ou rotinas U_ de empresa.
+2. **Fontes AdvPL/TLPP em CP1252 + CRLF.** Confira os bytes depois de salvar
+   (`bash /opt/plab/lab/tests/test_encoding.sh /workspace`). Nunca converta encoding em silêncio.
+3. **Não invente API.** Todo símbolo AdvPL/TLPP (função, classe, método) precisa estar validado no
+   TDN (tdn.totvs.com) ou nas skills EngPro antes de ser usado. Se não achar, não use e registre a lacuna.
+4. **Compilar:** `lab compile {{RELEASE}} <fontes>` (skill `compilar-advpls-lab`). Um ERROR ou FATAL
+   invalida o lote. Na 2510, depois de compilar, peça para rodar no host `plab restart 2510`.
+5. **Testar pela interface:** gere suítes TIR com a skill EngPro `tir-test-generator` e siga a
+   skill `testes-protheus` (evidência e aceite). Nestes WebApps o Setup do TIR 2.14.12 não conclui;
+   use o complemento Playwright (`lab ui`, `/opt/plab/lab/tir/plab_pw.py`) conforme a skill.
+   - Não crie `config.json` no workspace: o `lab tir` gera a config em runtime (com a senha do secret)
+     e passa o caminho em `PLAB_TIR_CONFIG`. No TESTCASE use
+     `Webapp(config_path=os.environ["PLAB_TIR_CONFIG"])`.
+   - Confirme títulos e menus na tela real antes de fixá-los (ex.: o browse da MATA010 mostra
+     "Atualizacao de Produtos", sem acento). Use `lab ui` ou capturas como evidência.
+6. **Somente leitura por padrão.** Diálogo "Moedas": Cancelar. Inclusão/alteração/exclusão só com
+   pedido explícito e massa sintética.
+7. **Segredos.** Senhas e chaves só em `/run/secrets` ou `~/.config/lab/secrets.env`. Nunca em
+   argumento de comando, log, captura de tela, arquivo do workspace ou commit.
+8. **Evidência antes de afirmação.** Não declare "pronto" sem rodar a verificação e mostrar a saída.
+
+## Comandos úteis
+
+| Comando | O que faz |
+|---|---|
+| `lab doctor {{RELEASE}}` | diagnóstico da release |
+| `lab compile {{RELEASE}} arquivo.prw` | compila no ambiente de compilação |
+| `lab ui {{RELEASE}}` | smoke de interface somente leitura |
+| `lab tir {{RELEASE}} SUITE.py` | roda uma suíte TIR com config temporária |
+| `lab versions` | versões instaladas |
+
+## Skills disponíveis
+
+{{SKILLS}}

@@ -1,0 +1,78 @@
+# CI do Protheus 2610 Lab: gates estaticos que cabem num runner hospedado.
+# O smoke completo (stacks 2610/2510 + lab) exige mais de 25 GB de imagens e roda como gate LOCAL
+# antes de cada release (ver docs/PUBLICACAO.md). Actions fixadas por SHA; permissoes minimas.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  estaticos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0  # gitleaks precisa do historico completo
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: shellcheck
+        run: |
+          docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
+            koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
+            -x -s bash plab lab/bin/lab lab/bin/plab-scan lab/bin/lib/*.sh lab/tests/*.sh stacks/2510/entrypoint-lab.sh \
+            lab/setup/lib/*.sh lab/setup/providers/*.sh
+          docker run --rm -v "$PWD:/mnt:ro" -w /mnt/lab/setup \
+            koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
+            -x -s bash lab-setup.sh
+
+      - name: skill testes-protheus (validador + testes)
+        working-directory: skills/testes-protheus
+        run: |
+          python -B scripts/validate_package.py .
+          python -B -m unittest discover -s tests
+
+      - name: fontes AdvPL em CP1252 + CRLF
+        run: bash lab/tests/test_encoding.sh "$PWD"
+
+      - name: compose config (2610, 2510, lab, reservas)
+        run: |
+          cp .env.example .env
+          for f in stacks/2610/compose.yaml stacks/2510/compose.yaml lab/compose.yaml; do
+            docker compose --env-file .env -f "$f" config --quiet && echo "ok $f"
+          done
+
+      - name: gitleaks (historico completo)
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" \
+            zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git /repo --redact --no-banner
+
+      - name: .env.example sem valores sensiveis
+        run: |
+          if grep -nE '^\s*[A-Z0-9_]*(_PASSWORD|_TOKEN|_KEY|_SECRET)\s*=\s*\S' .env.example; then
+            echo "valor sensivel no .env.example"; exit 1
+          fi
+
+  imagem-lab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    needs: estaticos
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build da imagem lab (sem publicar)
+        run: |
+          cp .env.example .env
+          docker compose --env-file .env -f lab/compose.yaml build lab
+      - name: versoes e importacoes
+        run: |
+          docker run --rm --entrypoint lab plab-lab:local versions
+          docker run --rm --entrypoint python plab-lab:local -c "import tir, playwright.sync_api; print('ok')"
