@@ -12,6 +12,10 @@ FROM ${UBUNTU_IMAGE} AS downloads
 ARG NODE_VERSION=22.23.4
 ARG CHROME_VERSION=156.0.8078.80
 ARG TDS_LS_VERSION=2.2.7
+# SHA-256 dos zips do Chrome for Testing da versao acima (conferidos em 02/11/2026). Ao trocar a
+# versao, troque tambem os hashes no .env.example.
+ARG CHROME_SHA256=b711c720f774be355197f32edf37e0651418ba036d92446ee2da19ac017540a7
+ARG CHROMEDRIVER_SHA256=cae58bbd262ba5c8a0ce2540f44254b6e789efc4fe9b18bbb4a00487a9f5859e
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl unzip xz-utils \
  && rm -rf /var/lib/apt/lists/*
@@ -23,6 +27,7 @@ RUN curl -fsSLo node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NO
 RUN base="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64" \
  && curl -fsSLo chrome.zip "$base/chrome-linux64.zip" \
  && curl -fsSLo chromedriver.zip "$base/chromedriver-linux64.zip" \
+ && printf '%s  chrome.zip\n%s  chromedriver.zip\n' "$CHROME_SHA256" "$CHROMEDRIVER_SHA256" | sha256sum -c - \
  && unzip -q chrome.zip -d /opt && mv /opt/chrome-linux64 /opt/chrome \
  && unzip -q chromedriver.zip -d /opt && mv /opt/chromedriver-linux64 /opt/chromedriver
 RUN PATH="/opt/node/bin:$PATH" npm install --prefix /opt/tds-ls --no-audit --no-fund "@totvs/tds-ls@${TDS_LS_VERSION}" \
