@@ -30,11 +30,19 @@ arquivo_compose() {
 
 compose() { local alvo=$1; shift; docker compose --env-file "$RAIZ/.env" -f "$(arquivo_compose "$alvo")" "$@"; }
 
-alvos() {
+# Valida no shell principal: um 'exit' dentro de $(...) so encerraria o subshell.
+validar_alvo() {
   case "${1:-}" in
-    all) echo "${RELEASES[*]} lab" ;;
+    all|2610|2510|lab) ;;
     "") sair 2 "informe o alvo: 2610, 2510, lab ou all" ;;
-    *) arquivo_compose "$1" >/dev/null; echo "$1" ;;
+    *) sair 2 "alvo invalido: '$1' (use 2610, 2510, lab ou all)" ;;
+  esac
+}
+
+alvos() {
+  case "$1" in
+    all) echo "${RELEASES[*]} lab" ;;
+    *) echo "$1" ;;
   esac
 }
 
@@ -76,12 +84,16 @@ checar_portas() {
 }
 
 # Evita a troca obrigatoria de senha do Admin quando a base da imagem passa do prazo da
-# politica (caso da 2510, senha trocada em 12/10/2025). Nao altera a senha. A credencial do
-# banco e a padrao de desenvolvimento embutida na imagem (rede interna).
+# politica (caso da 2510). Nao altera a senha; so a data da ultima troca. Decisao registrada em
+# STATUS.md e plan.md (Complexity Tracking). Releases em PLAB_RENOVAR_SENHA_ADMIN (padrao 2510).
+# A senha do banco e lida dentro do container (POSTGRES_PASSWORD da imagem): nada em argv nem em
+# arquivo temporario; o SQL vai pela entrada padrao.
 renovar_senha_admin() {
   local alvo=$1
-  compose "$alvo" cp "$RAIZ/stacks/sql/renova-senha-admin.sql" db:/tmp/plab-renova-senha.sql >/dev/null 2>&1
-  if compose "$alvo" exec -T -e PGPASSWORD=protheus db psql -h 127.0.0.1 -U protheus -d protheus -q -A -t -f /tmp/plab-renova-senha.sql >/dev/null 2>&1; then
+  [[ " ${PLAB_RENOVAR_SENHA_ADMIN-2510} " == *" $alvo "* ]] || return 0
+  # shellcheck disable=SC2016 # expandido dentro do container, de proposito
+  if compose "$alvo" exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 -U postgres -d protheus -q -A -t -v ON_ERROR_STOP=1' \
+       < "$RAIZ/stacks/sql/renova-senha-admin.sql" >/dev/null 2>&1; then
     echo "senha do Admin renovada (sem alteracao) em plab-$alvo"
   else
     echo "plab: aviso: renovacao da senha do Admin falhou em plab-$alvo" >&2
@@ -89,8 +101,8 @@ renovar_senha_admin() {
 }
 
 cmd_up() {
-  testar_docker; garantir_rede
-  for alvo in $(alvos "${1:-}"); do
+  validar_alvo "${1:-}"; testar_docker; garantir_rede
+  for alvo in $(alvos "$1"); do
     checar_portas "$alvo"
     echo "subindo plab-$alvo..."
     compose "$alvo" up -d --wait --wait-timeout 900 || sair 5 "plab-$alvo nao ficou healthy. Veja: ./plab logs $alvo"
@@ -100,8 +112,10 @@ cmd_up() {
 }
 
 cmd_down() {
-  testar_docker
   local alvo_arg=$1 volumes=${2:-}
+  validar_alvo "$alvo_arg"
+  case "$volumes" in ""|--volumes) ;; *) sair 2 "opcao invalida: '$volumes' (use --volumes)" ;; esac
+  testar_docker
   for alvo in $(alvos "$alvo_arg"); do
     local args=(down)
     if [ "$volumes" = "--volumes" ]; then
@@ -116,7 +130,7 @@ cmd_down() {
 cmd_status() {
   testar_docker
   local lista
-  if [ -n "${1:-}" ]; then lista=$(alvos "$1"); else lista="${RELEASES[*]} lab"; fi
+  if [ -n "${1:-}" ]; then validar_alvo "$1"; lista=$(alvos "$1"); else lista="${RELEASES[*]} lab"; fi
   for alvo in $lista; do
     echo "== plab-$alvo"
     compose "$alvo" ps --format 'table {{.Service}}\t{{.State}}\t{{.Health}}\t{{.Ports}}' || true
@@ -149,14 +163,19 @@ esperar_healthy() { # alvo servico segundos
 
 # Reinicia so o AppServer da release. Na 2510 e o jeito de trazer de volta o /app-root depois de uma
 # compilacao (o AppServer 24.3 religa o REST na porta do servidor interno da interface nova).
+# Retorna o codigo (nao sai) para o smoke poder reportar o passo 5.
+reiniciar_appserver() {
+  echo "reiniciando o appserver de plab-$1..."
+  compose "$1" restart appserver || { echo "plab: falha ao reiniciar o appserver de plab-$1" >&2; return 5; }
+  sleep 20
+  esperar_healthy "$1" appserver 600 || { echo "plab: appserver de plab-$1 nao ficou healthy" >&2; return 5; }
+  cmd_lab doctor "$1" || return 5
+}
+
 cmd_restart() {
   case "${1:-}" in 2610|2510) ;; *) sair 2 "use: restart 2610|2510" ;; esac
   testar_docker
-  echo "reiniciando o appserver de plab-$1..."
-  compose "$1" restart appserver || sair 5 "falha ao reiniciar o appserver de plab-$1"
-  sleep 20
-  esperar_healthy "$1" appserver 600 || sair 5 "appserver de plab-$1 nao ficou healthy"
-  cmd_lab doctor "$1"
+  reiniciar_appserver "$1" || exit $?
 }
 
 cmd_smoke() {
@@ -164,7 +183,7 @@ cmd_smoke() {
   cmd_lab smoke "$1" || exit $?
   if [[ " ${PLAB_REINICIAR_APOS_COMPILAR:-2510} " == *" $1 "* ]]; then
     echo "[5/5] recuperacao      reiniciando appserver $1 (compilacao derruba o /app-root nesta release)"
-    cmd_restart "$1" || { echo "FALHOU $1 no passo 5/recuperacao"; exit 15; }
+    reiniciar_appserver "$1" || { echo "FALHOU $1 no passo 5/recuperacao"; exit 15; }
     echo "[5/5] recuperacao      OK   (interface nova de volta apos a compilacao)"
   fi
 }
@@ -192,11 +211,13 @@ case "$cmd" in
   up)     ler_env; cmd_up "${1:-}" ;;
   down)   ler_env; cmd_down "${1:-}" "${2:-}" ;;
   status) ler_env; cmd_status "${1:-}" ;;
-  logs)   ler_env; testar_docker; compose "${1:?alvo}" logs --tail 200 ${2:+"$2"} ;;
+  logs)   ler_env
+          case "${1:-}" in 2610|2510|lab) ;; *) sair 2 "use: logs 2610|2510|lab [servico]" ;; esac
+          testar_docker; compose "$1" logs --tail 200 ${2:+"$2"} ;;
   smoke)  ler_env; cmd_smoke "${1:-}" ;;
   restart) ler_env; cmd_restart "${1:-}" ;;
   setup)  ler_env; cmd_lab setup ;;
-  scan)   exec "$RAIZ/lab/bin/plab-scan" ;;
+  scan)   exec bash "$RAIZ/lab/bin/plab-scan" ;;
   help|-h|--help) ajuda ;;
   *) ajuda; exit 2 ;;
 esac

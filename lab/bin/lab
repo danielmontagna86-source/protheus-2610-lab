@@ -17,6 +17,7 @@ lab - Protheus 2610 Lab (container de ferramentas)
   lab compile <release> <fonte...>  compila no ambiente de compilacao da release
   lab tir <release> <suite.py>  executa suite TIR com config temporaria
   lab ui <2610|2510>            smoke de interface (Playwright) somente leitura
+  lab cenarios <rel> [nome]     cenarios de leitura (cenarios/ui-leitura/cenarios.json)
   lab smoke <2610|2510>         doctor -> compile LABHELLO -> interface leitura -> PRONTO
   lab setup [opcoes]            assistente de IA (Claude Code, Codex, ...)
 EOF
@@ -29,6 +30,7 @@ case "$cmd" in
   compile)  exec "$LAB_LIB/compile.sh" "$@" ;;
   tir)      exec "$LAB_LIB/tir.sh" "$@" ;;
   ui)       exec "$LAB_LIB/ui.sh" "$@" ;;
+  cenarios) exec "$LAB_LIB/cenarios.sh" "$@" ;;
   smoke)    exec "$LAB_LIB/smoke.sh" "$@" ;;
   setup)    exec "$PLAB_HOME/lab/setup/lab-setup.sh" "$@" ;;
   help|-h|--help) uso ;;
