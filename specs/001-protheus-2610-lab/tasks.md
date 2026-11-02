@@ -26,7 +26,7 @@ commit local em português (Princípio VI).
 
 **Purpose**: esqueleto do repositório e baseline da máquina
 
-- [x] T001 Registrar baseline das stacks existentes (`docker ps`, `docker stats --no-stream` de `protheus-teste` e `protheus_ia_lab`) em `evidencias/baseline/antes.txt` e criar `STATUS.md` com fase 0, decisões da research e AGUARDANDO_USUARIO vazio
+- [x] T001 Registrar baseline das stacks existentes (`docker ps`, `docker stats --no-stream` das stacks pré-existentes) em `evidencias/baseline/antes.txt` e criar `STATUS.md` com fase 0, decisões da research e AGUARDANDO_USUARIO vazio
 - [x] T002 [P] Criar estrutura de diretórios do plan (`stacks/2610`, `stacks/2510`, `stacks/reserva`, `lab/{bin,setup/providers,setup/lib,tests}`, `skills`, `templates`, `cenarios/hello`, `evidencias/.gitkeep`) e `LICENSE` MIT
 - [x] T003 [P] Criar `.env.example` conforme `contracts/env-contract.md`: grupos imagens, portas (2610 → 26234/26321/26181/26432/26020; 2510 → 25234/25321/25181/25432/25020), ambientes, nomes de senha **vazios**, versões do lab e das IAs; ajustar `.gitignore` para `.env` e `evidencias/**` exceto `.gitkeep`
 
@@ -55,7 +55,7 @@ commit local em português (Princípio VI).
 - [x] T009 [US1] Escrever `stacks/2610/compose.yaml` (project `name: plab-2610`, sem `container_name`, volumes nomeados, redes `default` + externa `plab` com aliases `*-2610`, portas `127.0.0.1:${PLAB_2610_PORT_*}`, healthchecks em todos os serviços, `mem_limit` por serviço, degrau (a) sem privilégios)
 - [x] T010 [US1] Subir a 2610 aplicando a escada de privilégio (a → b `security_opt systempaths/apparmor unconfined` → c `/dev/mem`+`SYS_RAWIO` → d `privileged`), parando no primeiro degrau que deixa license e appserver healthy; registrar resultado de cada degrau em `STATUS.md` e, se ≥ c, preencher Complexity Tracking do `plan.md`
 - [x] T011 [US1] Validar login no WebApp 2610 em `http://127.0.0.1:26321` com Admin (senha só via `.env` local), capturar tela pós-login em `evidencias/2610/spike/`, anotar versões AppServer/DBAccess/LIB/WebApp/License
-- [x] T012 [US1] Medir RAM (`docker stats --no-stream`) e disco (`docker system df -v` do project) da 2610 e conferir `protheus-teste`/`protheus_ia_lab` ainda healthy; registrar em `STATUS.md`
+- [x] T012 [US1] Medir RAM (`docker stats --no-stream`) e disco (`docker system df -v` do project) da 2610 e conferir as stacks pré-existentes ainda healthy; registrar em `STATUS.md`
 
 **Checkpoint**: US1 funcional e verificada (commit "feat(2610): stack 2610 de pé")
 
@@ -105,7 +105,7 @@ commit local em português (Princípio VI).
 
 **Independent Test**: rodar `plab setup` 2× → mesmo estado; IAs `testado_ok` ou `nao_testado(motivo)`
 
-- [x] T029 [P] [US4] Copiar `../insumos/testes-protheus/` para `skills/testes-protheus/` (sem alterar o original) e rodar `python -B scripts/validate_package.py .` e `python -B -m unittest discover -s tests` dentro do container; registrar resultado
+- [x] T029 [P] [US4] Copiar a skill `testes-protheus` do kit de insumos para `skills/testes-protheus/` (sem alterar o original) e rodar `python -B scripts/validate_package.py .` e `python -B -m unittest discover -s tests` dentro do container; registrar resultado
 - [ ] T030 [P] [US4] Confirmar na documentação oficial de Claude Code e Codex: login sem navegador (device-code/URL), variável de API key, diretório de skills; registrar fontes em `research.md` R-07
 - [ ] T031 [US4] Escrever `templates/agent-rules.md.tmpl` (regras genéricas: CP1252, padrão TOTVS, validar símbolo no TDN, WebApp, nunca produção, usar skills embarcadas) e `lab/setup/lib/templates.sh` que gera `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` em `/workspace` só dentro do bloco `<!-- BEGIN plab -->…<!-- END plab -->`
 - [ ] T032 [US4] Escrever `lab/setup/lib/secrets.sh` (`read -s`, recusa vazio, grava `~/.config/lab/secrets.env` 600 sem duplicar chave, nunca ecoa) e `lab/setup/lib/state.sh` (`~/.config/lab/state.json` sem segredo)

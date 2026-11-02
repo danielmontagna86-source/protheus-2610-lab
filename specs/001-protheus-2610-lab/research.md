@@ -54,7 +54,7 @@ Pesquisa feita em 2026-11-02 (Docker Hub API, GitHub API, npm, PyPI, Chrome for 
   `appserver-2610`, `appserver-2510`, `dbaccess-2610`… Portas host em 127.0.0.1:
   2610 → 26234 (TCP 1234), 26321 (WebApp 4321), 26181 (REST 8181), 26432 (Postgres), 26020
   (monitor licença); 2510 → 25234, 25321, 25181, 25432, 25020. Verificado em 2026-11-02:
-  todas livres; `protheus-teste` usa 1234/18080/18081/57890/55434.
+  todas livres; outra stack Protheus local costuma ocupar portas padrão como 1234.
 - **Alternatives considered**: um compose com profiles (rejeitado: `down -v` do projeto apagaria
   volumes das duas releases); `host.docker.internal` (rejeitado: portas em 127.0.0.1 não são
   alcançáveis por esse caminho em Linux).
@@ -120,7 +120,7 @@ Pesquisa feita em 2026-11-02 (Docker Hub API, GitHub API, npm, PyPI, Chrome for 
 
 ## R-10 Risco de login TIR
 
-- **Fato**: no ambiente local `Protheus-Teste` (imagem feliperaposo antiga, WebApp 10.1.5) o smoke
+- **Fato**: numa stack local mais antiga (imagem feliperaposo antiga, WebApp 10.1.5) o smoke
   TIR não concluiu por causa do fluxo de login PO UI (relatório VALIDACAO-8GB-20260910.md).
 - **Decision**: provar login TIR no início da Fase 3 em cada release, antes de escrever cenários;
   se falhar, registrar bloqueio com captura e avaliar adaptador versionado de login.

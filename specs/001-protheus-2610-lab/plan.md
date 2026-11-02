@@ -41,7 +41,7 @@ release; volume `lab-home` (config/tokens das IAs); bind `./workspace` (fontes d
 smoke completo ≤ 5 min por release
 
 **Constraints**: bind 127.0.0.1; portas 26xxx (2610) e 25xxx (2510); zero conflito com
-`protheus-teste` e `protheus_ia_lab`; RAM das duas releases + lab dentro dos 31 GB do Docker
+outras stacks já existentes na máquina; RAM das duas releases + lab dentro da memória alocada ao Docker
 (medir); sem `docker.sock`/`pid: host`; segredos só em `secrets.env` (600)
 
 **Scale/Scope**: 2 releases, 1 imagem construída, 4 IAs (2 no MVP), 2 skills próprias + 2 de
@@ -120,7 +120,7 @@ README.md  LICENSE (MIT)  STATUS.md
 
 | Fase | Entrega | Gate de saída (evidência) |
 |---|---|---|
-| 0 Spike | stacks/2610 e stacks/2510 de pé com emebatista, privilégio mínimo descoberto, login WebApp nas duas, versões e RAM/disco medidos | `docker compose ps` healthy nas duas ao mesmo tempo; tela pós-login; `protheus-teste` e `protheus_ia_lab` ainda healthy |
+| 0 Spike | stacks/2610 e stacks/2510 de pé com emebatista, privilégio mínimo descoberto, login WebApp nas duas, versões e RAM/disco medidos | `docker compose ps` healthy nas duas ao mesmo tempo; tela pós-login; stacks pré-existentes da máquina ainda healthy |
 | 1 Spec | (esta) spec/plan/tasks | commit |
 | 2 Imagem lab | Dockerfile + compose lab | `import tir` ok; Chrome headless abre WebApp 2610 e 2510; `advpls --version` |
 | 3 Compilação + smoke | skill compilar-advpls-lab, LABHELLO, smoke TIR leitura | `plab smoke 2610` e `plab smoke 2510` → PRONTO |
@@ -133,7 +133,7 @@ README.md  LICENSE (MIT)  STATUS.md
 
 | ID | Risco | Mitigação |
 |---|---|---|
-| R1 | Login PO UI do WebApp 26.x incompatível com TIR (falhou no Protheus-Teste com WebApp 10.1.5) | TIR 2.14.12 (mais novo); spike de login TIR logo no início da fase 3; reserva: adaptador de login via Selenium documentado na skill `testes-protheus` (`ui_adapter.py`) |
+| R1 | Login PO UI do WebApp 26.x incompatível com TIR (já falhou numa stack local mais antiga, com WebApp 10.1.5) | TIR 2.14.12 (mais novo); spike de login TIR logo no início da fase 3; reserva: adaptador de login via Selenium documentado na skill `testes-protheus` (`ui_adapter.py`) |
 | R2 | License Server/AppServer exigindo `/dev/mem` no WSL2 | escada de privilégio no spike, com evidência por degrau |
 | R3 | Imagens de comunidade sem licença declarada e sem garantia de permanência | fixar digest; reservas documentadas; README avisa |
 | R4 | RAM das duas releases + lab | medir no spike; README traz números e recomenda subir uma por vez em máquinas menores |
@@ -146,3 +146,6 @@ README.md  LICENSE (MIT)  STATUS.md
 |-----------|------------|-------------------------------------|
 | Possível `devices: /dev/mem` + `cap_add: sys_rawio` (ou `privileged`) no License Server/AppServer — só se o spike provar | O License Server identifica hardware via dmidecode; sem isso pode não subir | `security_opt: systempaths=unconfined` é tentado antes; se bastar, nenhum desvio é registrado |
 | Rede externa `plab` criada pelo wrapper | o container lab precisa alcançar as duas releases por nome | `host.docker.internal` não alcança portas publicadas só em 127.0.0.1 em Linux; rede compartilhada é portátil |
+| `plab up` atualiza `sys_usr.usr_dtchgpsw` do Admin (só releases em `PLAB_RENOVAR_SENHA_ADMIN`, padrão 2510) | a base 2510 da imagem nasce com a senha vencida pela política; o login automatizado não passa pela troca obrigatória | trocar a senha a cada vencimento é manual e quebra o smoke sem aviso; a senha e a política não são alteradas |
+| Senha do superusuário do Postgres lida de `POSTGRES_PASSWORD` dentro do container `db` para a renovação | o `psql` exige senha mesmo pelo socket local | passar a senha em `-e PGPASSWORD=...` a expõe na lista de processos do host (Princípio II); a variável já existe na imagem e não sai do container |
+| Fonte reserva (FR-005 / T018) não implementada | — (desvio, não exceção) | registrado em STATUS.md "Desvios registrados" |

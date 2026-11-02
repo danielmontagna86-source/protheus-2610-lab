@@ -40,7 +40,7 @@ diferentes; confundir os níveis gera falsa confiança.
 - As stacks 2610 e 2510 MUST ter project name, rede, volumes e portas próprios, com bind
   em `127.0.0.1`, e MUST poder rodar ao mesmo tempo.
 - O lab MUST NOT alterar, parar ou reutilizar stacks já existentes na máquina do
-  desenvolvedor (ex.: `protheus-teste`, `protheus_ia_lab`), nem usar portas já ocupadas.
+  desenvolvedor (ex.: outra stack Protheus local), nem usar portas já ocupadas.
 - Containers MUST NOT montar `docker.sock` nem usar `pid: host`. `privileged`, `cap_add` e
   `devices` só são permitidos com teste comprovando a necessidade, documentado no README.
 
@@ -101,4 +101,4 @@ exato sem adivinhar.
   justificativa escrita na seção de complexidade do plano.
 - Revisão independente, quando houver, não autoriza publicação.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02
+**Version**: 1.0.1 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02

@@ -296,7 +296,7 @@ contrato de autenticação, publicação de skills e geração de instruções.
 
 ## Assumptions
 
-- Plataforma de referência: Windows 11 com Docker Desktop (WSL2), 64 GB de RAM, 31 GB alocados ao
+- Plataforma de referência: Windows 11 com Docker Desktop (WSL2), memória suficiente alocada ao
   Docker e mais de 100 GB livres; outras plataformas são "não testado".
 - Fonte principal das duas releases: imagens de comunidade `emebatista/*` (base padrão já
   restaurada); a mesma família de imagens nas duas releases reduz divergência de comportamento.

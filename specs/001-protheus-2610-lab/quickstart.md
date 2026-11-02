@@ -13,7 +13,7 @@ Roteiro que prova a feature de ponta a ponta. Comandos detalhados nos contratos
 
 | # | Passo | Resultado esperado | Cobre |
 |---|---|---|---|
-| V0 | Registrar estado de `protheus-teste` e `protheus_ia_lab` (`docker ps`) | baseline salvo | SC-008 |
+| V0 | Registrar estado das stacks que já existem na máquina (`docker ps`) | baseline salvo | SC-008 |
 | V1 | `copy .env.example .env`, preencher senhas admin, `plab up 2610` | 4 serviços healthy; `http://127.0.0.1:26321` responde | US1, SC-001 |
 | V2 | Login no WebApp 2610 como Admin | menu abre; versões anotadas | US1 |
 | V3 | `plab up 2510` com 2610 rodando | as duas healthy; `http://127.0.0.1:25321` abre 2510 | US2, SC-002 |
