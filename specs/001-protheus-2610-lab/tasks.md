@@ -137,8 +137,8 @@ commit local em português (Princípio VI).
 
 ## Phase 8: User Story 6 - opencode e Gemini CLI (Priority: P5)
 
-- [ ] T045 [P] [US6] Confirmar na documentação oficial de opencode e Gemini CLI auth sem navegador, variável de API key e diretório de skills/instruções; registrar em `research.md`
-- [ ] T046 [US6] Escrever `lab/setup/providers/opencode.sh` e `lab/setup/providers/gemini.sh` com o mesmo contrato de T033
+- [x] T045 [P] [US6] Confirmar na documentação oficial de opencode e Gemini CLI auth sem navegador, variável de API key e diretório de skills/instruções; registrar em `research.md`
+- [x] T046 [US6] Escrever `lab/setup/providers/opencode.sh` e `lab/setup/providers/gemini.sh` com o mesmo contrato de T033
 - [ ] T047 [US6] Rodar setup e testes de idempotência com as quatro IAs; status final por IA × modo
 
 ---

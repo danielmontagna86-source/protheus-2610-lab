@@ -65,6 +65,8 @@ Correções descobertas na compilação (todas verificadas):
 | T038 ponta a ponta com IA | Claude no lab criou suíte TIR da MATA010 usando `tir-test-generator` + `testes-protheus` (POUILogin, somente leitura, sem senha, não declarou pronto). Ressalvas viraram regra no template (config via `PLAB_TIR_CONFIG`; título real sem acento) |
 | TIR 2.14.13rc1 | testado: mesmo travamento no `#selectEnv` → issue redigido em `docs/upstream/tir-issue-selectenv.md` (envio autorizado; falta `gh auth login`) |
 | Shellcheck / CI | 20 scripts sem achados; `.github/workflows/ci.yml` com gates estáticos (actions por SHA) |
+| T045 pesquisa opencode/Gemini | `research.md` R-07.1: versões `latest` no npm (opencode-ai 1.19.5, @google/gemini-cli 0.66.0) e docs oficiais lidas nos repositórios `sst/opencode` @ `1bf08ae46a91` e `google-gemini/gemini-cli` @ `0ac57c029b84` (sites bloqueados na sessão de nuvem). Gemini não documenta login de conta sem navegador → só `api_key` |
+| T046 providers opencode e Gemini | `lab/setup/providers/opencode.sh` (conta: `opencode auth login`; chave: `OPENCODE_API_KEY` ou `ANTHROPIC_API_KEY`) e `gemini.sh` (só `api_key`: `GEMINI_API_KEY`); `lab-setup.sh` com `IAS_SUPORTADAS="claude codex opencode gemini"`, versão no `state.json` e `<ia>_modos` opcional (fluxo de Claude/Codex sem mudança de comportamento). `shellcheck` v0.11.0 (binário oficial, sessão sem Docker): 0 achados em `lab/setup/providers/*.sh`, `lab/tests/*.sh` e `lab-setup.sh`. Teste local com **stubs** (npm, CLIs, doctor e smoke falsos; sem rede de IA): chave digitada por pseudo-TTY não aparece na saída, `secrets.env` 600 sem duplicar, wrapper do opencode exporta só a variável escolhida e nenhuma no modo conta, wrapper do Gemini só `GEMINI_API_KEY`, `settings.json` do Gemini preservado; 2 execuções seguidas com as 4 IAs → estado, instruções, skills e wrappers idênticos |
 
 ## Em andamento
 
@@ -73,6 +75,15 @@ Correções descobertas na compilação (todas verificadas):
 ## Pendências
 
 - T026–T028 smoke completo; T018 reservas; US4–US6; Polish.
+- **T047 (US6) não testado**: precisa da imagem `lab` com as stacks Protheus e credenciais do dono.
+  No PC do dono, dentro do container lab:
+  1. `bash /opt/plab/lab/tests/test_setup_idempotente.sh 2610 claude,codex,opencode,gemini`
+     (esperado: opencode `nao_testado`, gemini `nao_suportado(modo conta...)`, idempotente OK);
+  2. `lab setup --ia opencode` (conta, ex.: GitHub Copilot por código de dispositivo, ou `api_key`)
+     e `lab setup --ia gemini --auth api_key` → esperado `testado_ok`;
+  3. varredura de segredo (`plab scan`) depois do login.
+  Estado atual por IA × modo: opencode conta = não testado; opencode api_key = não testado;
+  gemini api_key = não testado; gemini conta = não suportado (documentação oficial).
 - Conferir versão da LIB pela interface (2610: autor declara 20261016).
 - Antes de publicar: reescrever o histórico local para remover `evidencias/` do commit `1b6fc29`
   (capturas com hostname do autor da imagem e baseline com nomes de containers locais).
@@ -86,6 +97,8 @@ Nenhum.
 - **Compilar na 2510**: a senha padrão do Admin da 2510 contém `$`, que trava o `advpls cli`.
   Opção recomendada: trocar a senha do Admin **da 2510 do lab** por uma sem `$` pelo fluxo normal do
   Protheus (WebApp → trocar senha) e atualizar `PLAB_2510_ADMIN_PASSWORD` no `.env`. Autoriza?
+- **US6 (T047)**: rodar os passos de T047 acima com sua conta/chave de opencode e Gemini? Sem isso
+  os dois ficam "não testado".
 - **Reportar ao TIR** (github.com/totvs/tir) o defeito do `#selectEnv` com autocompletar? É publicação
   externa; só com autorização.
 

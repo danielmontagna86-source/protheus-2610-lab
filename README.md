@@ -66,6 +66,20 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 | — | `lab ui <rel>` | smoke de interface com Playwright |
 | — | `lab tir <rel> <suite.py>` | executa suíte TIR com config temporária |
 | — | `lab versions` | versões instaladas |
+| — | `lab setup [--ia ...] [--auth conta\|api_key]` | configura CLIs de IA, publica skills e gera AGENTS/CLAUDE/GEMINI.md |
+
+### IAs do `lab setup`
+
+Versões fixadas no `.env.example`. Chaves de API são lidas sem eco e ficam só em
+`~/.config/lab/secrets.env` (600, volume `lab-home`); o wrapper de cada CLI carrega apenas a sua.
+Fontes oficiais e datas em `specs/001-protheus-2610-lab/research.md` (R-07).
+
+| IA | Pacote npm | Login de conta (`conta`) | Chave (`api_key`) | Skills | Status |
+|---|---|---|---|---|---|
+| Claude Code | `@anthropic-ai/claude-code` | `claude auth login` (URL + código colado) | `ANTHROPIC_API_KEY` | `~/.claude/skills` | conta testada (login real do dono) |
+| Codex | `@openai/codex` | `codex login --device-auth` | `OPENAI_API_KEY` via stdin do `codex login --with-api-key` | `~/.codex/skills` | conta testada (login real do dono) |
+| opencode | `opencode-ai` | `opencode auth login` (escolha o provedor; no container prefira código de dispositivo, ex.: GitHub Copilot) | `OPENCODE_API_KEY` ou `ANTHROPIC_API_KEY` | `~/.config/opencode/skills` | não testado |
+| Gemini CLI | `@google/gemini-cli` | **não suportado** (a doc só descreve login com navegador local) | `GEMINI_API_KEY` | `~/.gemini/skills` | não testado |
 
 ## Fontes das imagens
 
