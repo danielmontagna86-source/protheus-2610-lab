@@ -34,6 +34,13 @@ jobs:
             koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
             -x -s bash lab-setup.sh
 
+      - name: scripts versionados como executaveis (100755)
+        run: |
+          ruins=$(git ls-files -s -- plab lab/bin/lab lab/bin/plab-scan 'lab/bin/lib/*.sh' 'lab/setup/*.sh' \
+            'lab/setup/lib/*.sh' 'lab/setup/providers/*.sh' 'lab/tests/*.sh' stacks/2510/entrypoint-lab.sh \
+            | awk '$1 != "100755" {print $4}')
+          if [ -n "$ruins" ]; then echo "sem bit executavel no git:"; echo "$ruins"; exit 1; fi
+
       - name: skill testes-protheus (validador + testes)
         working-directory: skills/testes-protheus
         run: |
@@ -43,7 +50,7 @@ jobs:
       - name: fontes AdvPL em CP1252 + CRLF
         run: bash lab/tests/test_encoding.sh "$PWD"
 
-      - name: compose config (2610, 2510, lab, reservas)
+      - name: compose config (2610, 2510, lab)
         run: |
           cp .env.example .env
           for f in stacks/2610/compose.yaml stacks/2510/compose.yaml lab/compose.yaml; do
