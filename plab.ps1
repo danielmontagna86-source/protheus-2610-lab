@@ -121,28 +121,38 @@ function Checar-Portas($oEnv, [string] $cAlvo) {
     }
 }
 
-function Renovar-Senha-Admin([string] $cAlvo) {
+function Renovar-Senha-Admin {
     # Evita a troca obrigatoria de senha do Admin quando a base da imagem passa do prazo da
-    # politica (caso da 2510, senha trocada em 12/10/2025). Nao altera a senha.
-    # A credencial do banco e a padrao de desenvolvimento embutida na imagem (rede interna).
+    # politica (caso da 2510). Nao altera a senha; so a data da ultima troca. Decisao registrada
+    # em STATUS.md e plan.md. Releases em PLAB_RENOVAR_SENHA_ADMIN (padrao 2510).
+    # A senha do banco e lida dentro do container (POSTGRES_PASSWORD da imagem): nada em argv nem
+    # em arquivo temporario; o SQL vai pela entrada padrao.
+    param([string] $cAlvo, $oEnv)
+    $cLista = if ($oEnv.ContainsKey('PLAB_RENOVAR_SENHA_ADMIN')) { $oEnv['PLAB_RENOVAR_SENHA_ADMIN'] } else { '2510' }
+    if (($cLista -split '[,\s]+') -notcontains $cAlvo) { return }
     $cSql = Join-Path $cRaiz 'stacks\sql\renova-senha-admin.sql'
     $cArq = Arquivo-Compose $cAlvo
     $aBase = @('compose', '--env-file', (Join-Path $cRaiz '.env'), '-f', $cArq)
-    & docker @aBase cp $cSql 'db:/tmp/plab-renova-senha.sql' *> $null
-    $cSaida = & docker @aBase exec -T -e PGPASSWORD=protheus db psql -h 127.0.0.1 -U protheus -d protheus -q -A -t -f /tmp/plab-renova-senha.sql 2>&1
+    $OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    # Sem aspas duplas no comando: o PowerShell 5.1 nao as escapa ao chamar programas nativos.
+    $cSaida = Get-Content -Raw $cSql | & docker @aBase exec -T db sh -c 'PGPASSWORD=$POSTGRES_PASSWORD exec psql -h 127.0.0.1 -U postgres -d protheus -q -A -t -v ON_ERROR_STOP=1' 2>&1
     if ($LASTEXITCODE -ne 0) { Write-Warning "renovacao da senha do Admin falhou em $(Projeto $cAlvo): $cSaida" }
     else { Write-Host "senha do Admin renovada (sem alteracao) em $(Projeto $cAlvo)" }
 }
 
 function Cmd-Up($oEnv, [string] $cAlvoArg) {
+    Alvos $cAlvoArg | Out-Null
     Testar-Docker
     Garantir-Rede
     foreach ($cAlvo in (Alvos $cAlvoArg)) {
         Checar-Portas $oEnv $cAlvo
+        if ($cAlvo -eq 'lab') {
+            foreach ($cDir in 'workspace', 'evidencias') { New-Item -ItemType Directory -Force -Path (Join-Path $cRaiz $cDir) | Out-Null }
+        }
         Write-Host "subindo $(Projeto $cAlvo)..."
         $nRet = Compose $cAlvo @('up', '-d', '--wait', '--wait-timeout', '900')
         if ($nRet -ne 0) { Sair 5 "$(Projeto $cAlvo) nao ficou healthy. Veja: .\plab.ps1 logs $cAlvo" }
-        if ($aReleases -contains $cAlvo) { Renovar-Senha-Admin $cAlvo }
+        if ($aReleases -contains $cAlvo) { Renovar-Senha-Admin $cAlvo $oEnv }
     }
     Cmd-Status $oEnv $cAlvoArg
 }
@@ -176,6 +186,7 @@ function Cmd-Status($oEnv, [string] $cAlvoArg) {
 }
 
 function Cmd-Logs([string] $cAlvoArg) {
+    if (@('2610', '2510', 'lab') -notcontains $cAlvoArg) { Sair 2 'use: logs 2610|2510|lab [servico]' }
     Testar-Docker
     $aArgs = @('logs', '--tail', '200')
     if ($Servico) { $aArgs += $Servico }
@@ -212,15 +223,18 @@ function Esperar-Healthy([string] $cAlvo, [string] $cServico, [int] $nSegundos =
 function Cmd-Restart([string] $cAlvo) {
     # Reinicia so o AppServer da release. Na 2510 e o jeito de trazer de volta o /app-root depois de
     # uma compilacao (o AppServer 24.3 religa o REST na porta do servidor interno da interface nova).
+    # Retorna o codigo (nao sai) para o smoke poder reportar o passo 5.
     if ($aReleases -notcontains $cAlvo) { Sair 2 'use: restart 2610|2510' }
     Testar-Docker
     Write-Host "reiniciando o appserver de $(Projeto $cAlvo)..."
     $nRet = Compose $cAlvo @('restart', 'appserver')
-    if ($nRet -ne 0) { Sair 5 "falha ao reiniciar o appserver de $(Projeto $cAlvo)" }
+    if ($nRet -ne 0) { Write-Warning "falha ao reiniciar o appserver de $(Projeto $cAlvo)"; return 5 }
     # O healthcheck so passa com WebApp e /app-root respondendo.
     Start-Sleep -Seconds 20
-    if (-not (Esperar-Healthy $cAlvo 'appserver')) { Sair 5 "appserver de $(Projeto $cAlvo) nao ficou healthy" }
-    return (Cmd-Lab @('doctor', $cAlvo))
+    if (-not (Esperar-Healthy $cAlvo 'appserver')) { Write-Warning "appserver de $(Projeto $cAlvo) nao ficou healthy"; return 5 }
+    $nRet = Cmd-Lab @('doctor', $cAlvo)
+    if ($nRet -ne 0) { return 5 }
+    return 0
 }
 
 function Cmd-Smoke($oEnv, [string] $cAlvo) {

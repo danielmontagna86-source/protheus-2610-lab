@@ -104,6 +104,8 @@ cmd_up() {
   validar_alvo "${1:-}"; testar_docker; garantir_rede
   for alvo in $(alvos "$1"); do
     checar_portas "$alvo"
+    # No Docker Engine Linux um bind inexistente nasce root:root e o usuario lab (uid 1000) nao grava.
+    [ "$alvo" = lab ] && mkdir -p "$RAIZ/workspace" "$RAIZ/evidencias"
     echo "subindo plab-$alvo..."
     compose "$alvo" up -d --wait --wait-timeout 900 || sair 5 "plab-$alvo nao ficou healthy. Veja: ./plab logs $alvo"
     [ "$alvo" = lab ] || renovar_senha_admin "$alvo"
