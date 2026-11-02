@@ -80,6 +80,56 @@ Pesquisa feita em 2026-11-02 (Docker Hub API, GitHub API, npm, PyPI, Chrome for 
 - **Hipóteses a confirmar na documentação oficial de cada CLI durante a Fase 4**: fluxo de login
   sem navegador (device-code/URL), variável de API key, diretório de skills
   (`~/.claude/skills`, `~/.codex/skills` ou `~/.agents/skills`, equivalentes de Gemini/opencode).
+  Claude e Codex: confirmados (fontes nos cabeçalhos de `lab/setup/providers/claude.sh` e `codex.sh`).
+
+### R-07.1 opencode e Gemini CLI (T045, consultado em 02/11/2026)
+
+**Versões** (`npm view <pacote> dist-tags`, 02/11/2026): `opencode-ai` `latest` = **1.19.5**
+(publicada em 28/10/2026); `@google/gemini-cli` `latest` = **0.66.0** (27/10/2026; `preview` 0.67.0-preview.0
+e `nightly` não usadas). As versões do `.env.example` continuam as estáveis.
+
+**Como as fontes foram lidas.** Nesta sessão de nuvem `opencode.ai` e `geminicli.com` não estavam
+liberados na rede. As mesmas páginas foram lidas nos repositórios oficiais, que são a fonte dos sites:
+
+| CLI | Repositório oficial / commit lido | Páginas (site → arquivo) |
+|---|---|---|
+| opencode | `github.com/sst/opencode` @ `1bf08ae46a91` (02/11/2026) | `opencode.ai/docs/cli`, `/providers`, `/skills`, `/rules`, `/config`, `/acp` → `packages/web/src/content/docs/*.mdx` |
+| Gemini CLI | `github.com/google-gemini/gemini-cli` @ `0ac57c029b84` (02/11/2026) | `geminicli.com/docs/get-started/authentication`, `cli/headless`, `cli/cli-reference`, `cli/skills`, `cli/gemini-md`, `cli/trusted-folders`, `reference/configuration` → `docs/**` |
+
+**Achados — opencode** (multi-provedor):
+
+| Item | Documentado | Uso no lab |
+|---|---|---|
+| Instalação | `npm install -g opencode-ai` (`index.mdx`) | prefixo npm em `lab-home`, versão `PLAB_OPENCODE` |
+| Atualização | `OPENCODE_DISABLE_AUTOUPDATE` (`cli.mdx`), `"autoupdate": false` (`config.mdx`) | wrapper exporta `OPENCODE_DISABLE_AUTOUPDATE=1` |
+| Login de conta | `opencode auth login [--provider] [--method]` (`cli.mdx`); cada provedor tem seu método: GitHub Copilot por **código de dispositivo** (`github.com/login/device`), OpenCode/OpenCode Go por chave copiada de `opencode.ai/auth`, ChatGPT Plus/Pro "abre o navegador" (`providers.mdx`) | modo `conta` = `opencode auth login` interativo; o lab avisa que métodos com navegador local podem não concluir no container |
+| Onde fica a credencial | `~/.local/share/opencode/auth.json` (`cli.mdx`, `providers.mdx`) | `chmod 600` depois do login |
+| Chave por variável | carrega "keys defined in your environments" (`cli.mdx`); `OPENCODE_API_KEY` (`acp.mdx`); `ANTHROPIC_API_KEY` via `{env:...}` (`config.mdx`, `providers.mdx`) | modo `api_key`: só `opencode` → `OPENCODE_API_KEY` e `anthropic` → `ANTHROPIC_API_KEY` (os dois com variável documentada) |
+| Chave por stdin | **não documentado** (o `auth login` pede a chave num prompt próprio) | não usado: a chave vai de `read -s` para `secrets.env` e só o wrapper a exporta |
+| Skills | `~/.config/opencode/skills/<nome>/SKILL.md`; também lê `~/.claude/skills` e `~/.agents/skills` (`skills.mdx`) | publica em `~/.config/opencode/skills` |
+| Instruções | `AGENTS.md` do projeto; `CLAUDE.md` só se não houver `AGENTS.md` (`rules.mdx`) | usa o `AGENTS.md` já gerado |
+| Teste | `opencode run [message..]` (`cli.mdx`) | `opencode run "Responda apenas: OK"` |
+
+**Achados — Gemini CLI**:
+
+| Item | Documentado | Uso no lab |
+|---|---|---|
+| Instalação | `npm install -g @google/gemini-cli` (`installation.mdx`) | prefixo npm, versão `PLAB_GEMINI_CLI` |
+| Atualização | `general.enableAutoUpdate` (padrão `true`) em `~/.gemini/settings.json` (`configuration.md`) | setup grava `false` (e `enableAutoUpdateNotification=false`) preservando o resto do arquivo |
+| Login de conta | "Sign in with Google" **exige navegador numa máquina que fale com o terminal**; headless só com credencial já em cache ou variáveis (`authentication.mdx`). **Nenhum fluxo de código de dispositivo ou URL copiável documentado** | modo `conta` **não suportado** no lab: o setup recusa com `nao_suportado(modo conta; use: api_key)` |
+| Onde fica a credencial da conta | "cached locally" — caminho **não documentado** | — |
+| Chave por variável | `GEMINI_API_KEY` (Google AI Studio) (`authentication.mdx`, `configuration.md`); também lê `.env` e `~/.gemini/.env` | `GEMINI_API_KEY` só em `~/.config/lab/secrets.env` (600), exportada apenas pelo wrapper; nada em `~/.gemini/.env` |
+| Chave por stdin / comando de login | **não documentado** | não usado |
+| Vertex AI (`GOOGLE_API_KEY`, ADC, service account) | documentado, exige projeto Google Cloud | fora do escopo do assistente (pode ser configurado à mão) |
+| Skills | `~/.gemini/skills/` ou alias `~/.agents/skills/` (o alias tem precedência) (`cli/skills.md`) | publica em `~/.gemini/skills` |
+| Instruções | `GEMINI.md` (hierárquico; `context.fileName` configurável) (`cli/gemini-md.md`) | usa o `GEMINI.md` já gerado |
+| Teste | `-p/--prompt` força modo não interativo; `--skip-trust` dispensa a confiança da pasta (`cli-reference.md`, `trusted-folders.md`) | `gemini --skip-trust -p "Responda apenas: OK"` |
+
+- **Decision**: opencode com `conta` (`opencode auth login`) e `api_key` (`OPENCODE_API_KEY` ou
+  `ANTHROPIC_API_KEY`); Gemini só com `api_key` (`GEMINI_API_KEY`). O que não está documentado
+  (stdin, device code do Google, caminho do cache de login do Google) não é oferecido.
+- **Rationale**: princípio II (chave só em `secrets.env`, nunca em argumento) e III (sem presumir
+  comportamento não documentado).
 
 ## R-08 Skills de terceiros
 

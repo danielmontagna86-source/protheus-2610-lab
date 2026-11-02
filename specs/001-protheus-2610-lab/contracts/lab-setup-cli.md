@@ -19,7 +19,9 @@ lab versions
 
 1. `doctor` da release (default: a única release healthy; se duas, pergunta).
 2. Menu de IAs (seleção múltipla). Para cada IA: modo `conta` (fluxo device-code/URL da CLI) ou
-   `api_key` (`read -s`, não vazia, grava em `~/.config/lab/secrets.env` 600).
+   `api_key` (`read -s`, não vazia, grava em `~/.config/lab/secrets.env` 600). O provider pode
+   declarar `<ia>_modos` com os modos que a CLI documenta; modo fora da lista vira
+   `nao_suportado(...)` (Gemini: só `api_key`).
 3. Instala a CLI na versão fixada (prefixo npm em `lab-home`), cria wrapper em
    `~/.local/bin/<cli>` que carrega `secrets.env` só para aquele processo.
 4. Teste trivial ("responda OK"); sem credencial → estado `nao_testado(motivo)`.

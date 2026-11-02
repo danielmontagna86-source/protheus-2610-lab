@@ -84,6 +84,7 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 | — | `lab cenarios <rel> [nome]` | cenários de leitura de `cenarios/ui-leitura` |
 | — | `lab tir <rel> <suite.py>` | executa suíte TIR com config temporária |
 | — | `lab versions` | versões instaladas |
+| — | `lab setup [--ia ...] [--auth conta\|api_key]` | configura CLIs de IA, publica skills e gera AGENTS/CLAUDE/GEMINI.md |
 
 Códigos de saída: 0 ok; 2 uso inválido; 3 Docker ou `.env` ausente; 4 porta ocupada; 5 serviço
 não ficou healthy; 10+n falha no passo n do smoke; 15 falha no reinício após compilar.
@@ -96,18 +97,27 @@ Roda dentro do container `lab` e precisa de terminal interativo:
 .\plab.ps1 setup      # ou: ./plab setup
 ```
 
-1. Escolha a release (2610 ou 2510); o assistente roda o `doctor`.
-2. Escolha uma ou mais IAs: **Claude Code** e **Codex** (versões fixadas no `.env.example`).
+1. Escolha a release (se as duas responderem, o assistente pergunta); ele roda o `doctor`.
+2. Escolha uma ou mais IAs (tabela abaixo; versões fixadas no `.env.example`).
 3. Para cada uma, escolha **login por conta** (o assistente mostra a URL ou o código para abrir no
    seu navegador) ou **chave de API**. A chave é lida sem eco e gravada só em
-   `~/.config/lab/secrets.env` (permissão 600), no volume `lab-home`. Nunca em argumento, log ou imagem.
-4. Publica as skills em `~/.claude/skills` e `~/.codex/skills`: `testes-protheus`,
-   `compilar-advpls-lab` e as skills da TOTVS EngPro (clonadas num commit fixo).
+   `~/.config/lab/secrets.env` (permissão 600), no volume `lab-home`. Nunca em argumento, log ou
+   imagem. O wrapper de cada CLI carrega só a sua chave.
+4. Publica as skills no diretório de cada CLI: `testes-protheus`, `compilar-advpls-lab` e as skills
+   da TOTVS EngPro (clonadas num commit fixo).
 5. Gera `CLAUDE.md`, `AGENTS.md` e `GEMINI.md` em `/workspace` (pasta `workspace/` do repositório)
    a partir de um template único, num bloco delimitado que preserva o que você escreveu.
 6. Roda o smoke e mostra um resumo. Pode rodar de novo: é idempotente.
 
-Depois, `docker exec -it plab-lab-lab-1 bash` e `claude` ou `codex` dentro de `/workspace`.
+| IA | Pacote npm | Login de conta (`conta`) | Chave (`api_key`) | Skills | Status |
+|---|---|---|---|---|---|
+| Claude Code | `@anthropic-ai/claude-code` | `claude auth login` (URL + código colado) | `ANTHROPIC_API_KEY` | `~/.claude/skills` | conta testada |
+| Codex | `@openai/codex` | `codex login --device-auth` | `OPENAI_API_KEY` (via stdin do `codex login --with-api-key`) | `~/.codex/skills` | conta testada |
+| opencode | `opencode-ai` | `opencode auth login` (no container prefira código de dispositivo, ex.: GitHub Copilot) | `OPENCODE_API_KEY` ou `ANTHROPIC_API_KEY` | `~/.config/opencode/skills` | não testado |
+| Gemini CLI | `@google/gemini-cli` | **não suportado** (a doc só descreve login com navegador local) | `GEMINI_API_KEY` | `~/.gemini/skills` | não testado |
+
+Fontes oficiais e datas em `specs/001-protheus-2610-lab/research.md` (R-07).
+Depois, `docker exec -it plab-lab-lab-1 bash` e a CLI escolhida dentro de `/workspace`.
 
 ## Fontes das imagens
 

@@ -43,6 +43,8 @@ Enquanto esse gate não passar, o projeto **não está pronto para publicação*
 | T030–T037 `lab setup` | Claude Code e Codex por login de conta: `testado_ok` nos dois; setup idempotente 2×; credenciais 600 no volume `lab-home` |
 | T038 ponta a ponta com IA | Claude no lab criou uma suíte TIR da MATA010 com `tir-test-generator` + `testes-protheus`, somente leitura, sem senha |
 | Medição de recursos | duas releases + lab ativos: RAM ~4,7 GB; imagens ~28 GB; volumes ~11 GB |
+| T045 pesquisa opencode/Gemini | `research.md` R-07.1: versões `latest` no npm (opencode-ai 1.19.5, @google/gemini-cli 0.66.0) e docs oficiais lidas nos repositórios `sst/opencode` @ `1bf08ae46a91` e `google-gemini/gemini-cli` @ `0ac57c029b84` (sites bloqueados na sessão de nuvem). Gemini não documenta login de conta sem navegador → só `api_key` |
+| T046 providers opencode e Gemini | `lab/setup/providers/opencode.sh` (conta: `opencode auth login`; chave: `OPENCODE_API_KEY` ou `ANTHROPIC_API_KEY`) e `gemini.sh` (só `api_key`: `GEMINI_API_KEY`); `lab-setup.sh` com `IAS_SUPORTADAS="claude codex opencode gemini"`, versão no `state.json` e `<ia>_modos` opcional (fluxo de Claude/Codex sem mudança de comportamento). `shellcheck` v0.11.0 (binário oficial, sessão sem Docker): 0 achados em `lab/setup/providers/*.sh`, `lab/tests/*.sh` e `lab-setup.sh`. Teste local com **stubs** (npm, CLIs, doctor e smoke falsos; sem rede de IA): chave digitada por pseudo-TTY não aparece na saída, `secrets.env` 600 sem duplicar, wrapper do opencode exporta só a variável escolhida e nenhuma no modo conta, wrapper do Gemini só `GEMINI_API_KEY`, `settings.json` do Gemini preservado; 2 execuções seguidas com as 4 IAs → estado, instruções, skills e wrappers idênticos |
 | Revisão independente (PR #2) | achados B2, A1, A4, A5, M1, M2, M3 tratados; demais em andamento (abaixo) |
 
 ## Achados verificados
@@ -65,6 +67,7 @@ Enquanto esse gate não passar, o projeto **não está pronto para publicação*
 
 ## Pendências
 
+- **T047 (US6) em teste local**: `test_setup_idempotente.sh 2610 claude,codex,opencode,gemini` no container lab; login real de opencode/Gemini depende de conta/chave do dono.
 - T051–T053 (gate final). US6 (opencode e Gemini, PR #1) a revisar.
 - Conferir a versão da LIB pela interface (2610: autor declara 20261016).
 
@@ -94,6 +97,7 @@ Nenhum.
 - Publicação pública do repositório: exige nova autorização.
 - Confirmar a renovação automática da data de troca de senha do Admin na 2510 (ou desligar com
   `PLAB_RENOVAR_SENHA_ADMIN=` vazio e trocar a senha manualmente a cada vencimento).
+- **US6**: testar opencode e Gemini com sua conta/chave (`lab setup --ia opencode` e `lab setup --ia gemini --auth api_key`)? Sem isso ficam "não testado".
 
 ## Riscos
 

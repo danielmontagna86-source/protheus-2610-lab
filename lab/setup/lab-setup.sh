@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # lab setup - assistente de IA do Protheus 2610 Lab (contrato: specs/001-protheus-2610-lab/contracts/lab-setup-cli.md)
-#   lab setup [--release 2610|2510] [--ia claude,codex] [--auth conta|api_key]
+#   lab setup [--release 2610|2510] [--ia claude,codex,opencode,gemini] [--auth conta|api_key]
 #             [--with-exemplos] [--nao-interativo] [--sem-smoke]
 # Passos: doctor -> escolha das IAs -> instala CLI fixada -> autentica -> teste "OK" ->
 #         publica skills -> gera AGENTS/CLAUDE/GEMINI.md -> smoke -> resumo.
@@ -20,9 +20,13 @@ SETUP="$PLAB_HOME/lab/setup"
 . "$SETUP/providers/claude.sh"
 # shellcheck source=providers/codex.sh
 . "$SETUP/providers/codex.sh"
+# shellcheck source=providers/opencode.sh
+. "$SETUP/providers/opencode.sh"
+# shellcheck source=providers/gemini.sh
+. "$SETUP/providers/gemini.sh"
 
 NPM_PREFIXO="${HOME}/.npm-global"
-IAS_SUPORTADAS="claude codex"
+IAS_SUPORTADAS="claude codex opencode gemini"
 
 rel=""; ias=""; auth=""; exemplos=""; interativo=1; smoke=1
 while [ $# -gt 0 ]; do
@@ -71,16 +75,30 @@ resumo=()
 dirs_skills=()
 for ia in $ias; do
   echo "== 3-5/7 $ia"
+  # Modos que a IA suporta (provider pode declarar <ia>_modos; padrao: conta e api_key).
+  modos="conta api_key"
+  if declare -F "${ia}_modos" >/dev/null; then modos=$("${ia}_modos"); fi
   modo=${auth:-$(estado_get ".ias.$ia.auth")}
   if [ -z "$modo" ]; then
-    if [ "$interativo" = 1 ]; then read -r -p "  autenticacao de $ia [conta/api_key] (conta): " modo; fi
-    modo=${modo:-conta}
+    if [ "$interativo" = 1 ]; then read -r -p "  autenticacao de $ia [${modos// //}] (${modos%% *}): " modo; fi
+    modo=${modo:-${modos%% *}}
   fi
   case "$modo" in conta|api_key) ;; *) echo "  modo invalido: $modo"; exit 2 ;; esac
+  case " $modos " in
+    *" $modo "*) ;;
+    *) echo "  $ia: modo $modo nao suportado (suportado: $modos)"
+       st="nao_suportado(modo $modo; use: $modos)"
+       estado_set ".ias.$ia.estado" "$st"; resumo+=("$ia|$modo|$st"); continue ;;
+  esac
   estado_set ".ias.$ia.auth" "$modo"
 
   if ! "${ia}_instalar"; then estado_set ".ias.$ia.estado" "falhou(instalacao)"; resumo+=("$ia|$modo|falhou(instalacao)"); continue; fi
-  case "$ia" in claude) versao=${PLAB_CLAUDE_CODE:-} ;; codex) versao=${PLAB_CODEX:-} ;; esac
+  case "$ia" in
+    claude) versao=${PLAB_CLAUDE_CODE:-} ;;
+    codex) versao=${PLAB_CODEX:-} ;;
+    opencode) versao=${PLAB_OPENCODE:-} ;;
+    gemini) versao=${PLAB_GEMINI_CLI:-} ;;
+  esac
   estado_set ".ias.$ia.versao" "$versao"
 
   # Sem captura de saida: o login (URL, codigo, perguntas) precisa ir direto ao terminal.
@@ -120,7 +138,7 @@ fi
 
 echo
 echo "Resumo do lab setup (release $rel)"
-printf '  %-8s %-8s %s\n' IA modo estado
-for l in "${resumo[@]}"; do IFS='|' read -r a m s <<<"$l"; printf '  %-8s %-8s %s\n' "$a" "$m" "$s"; done
+printf '  %-9s %-8s %s\n' IA modo estado
+for l in "${resumo[@]}"; do IFS='|' read -r a m s <<<"$l"; printf '  %-9s %-8s %s\n' "$a" "$m" "$s"; done
 echo "  smoke: $st_smoke"
 case "$st_smoke" in PRONTO|pulado) exit 0 ;; *) exit 1 ;; esac
