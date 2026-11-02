@@ -1,7 +1,6 @@
 # Rascunho de issue para github.com/totvs/tir
 
-> Status: PRONTO PARA ENVIO — autorizado pelo dono em 02/11/2026. Falta só a conta GitHub
-> (o `gh` desta máquina não está autenticado).
+> Status: ENVIADO em 02/11/2026 como https://github.com/totvs/tir/issues/2169 (autorizado pelo dono).
 
 > Também reproduzido em `release/v2.14.13rc1` (commit f97e2d4, 30/10/2026), com
 > `Setup("SIGAMDI", ...)`: preso em `Filling Server Environment: "P2610"` até o TimeOut, reinício
