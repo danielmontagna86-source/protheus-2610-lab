@@ -1,11 +1,18 @@
 # Contract: `lab` (dentro do container)
 
+Emenda de 2026-11-02 (achado M5): ordem do smoke, `lab ui`, `lab cenarios` e config do TIR
+alinhados à implementação.
+
 ```text
-lab doctor <2610|2510>        # diagnóstico: DNS, portas, WebApp HTTP, login TIR opcional
+lab doctor <2610|2510>        # DNS, TCP, WebApp, /app-root, REST, License Server, DBAccess, secret (31–38)
 lab setup [--release R] [--ia claude,codex,...] [--auth conta|api_key] [--with-exemplos]
-lab smoke <2610|2510>         # doctor → compile hello → TIR leitura → PRONTO | FALHOU:<passo>
+          [--nao-interativo] [--sem-smoke]
+lab smoke <2610|2510>         # doctor → interface (Playwright) → compile hello → limpeza → PRONTO | FALHOU
 lab compile <release> <arquivo...>
-lab tir <release> <suite.py>
+lab ui <2610|2510>            # smoke de interface somente leitura (Playwright)
+lab cenarios <2610|2510> [nome]  # cenários de leitura de cenarios/ui-leitura/cenarios.json
+lab tir <release> <suite.py>  # suíte TIR com config temporária
+lab versions
 ```
 
 ## `lab setup` — fluxo
@@ -20,7 +27,9 @@ lab tir <release> <suite.py>
 6. Gera `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` em `/workspace` a partir de
    `templates/agent-rules.md.tmpl` (só cria/atualiza bloco delimitado
    `<!-- BEGIN plab -->…<!-- END plab -->`, preservando texto do usuário).
-7. Gera `config.json` do TIR em `~/.config/lab/tir/<release>/` com senha lida de env em runtime.
+7. Não grava `config.json` do TIR: o `lab tir` gera uma config temporária por execução (diretório
+   0700, arquivo 0600, apagado no fim) com a senha lida do secret, e entrega o caminho em
+   `PLAB_TIR_CONFIG`. Mais seguro que um arquivo persistente.
 8. Roda `lab smoke <release>`.
 9. Imprime resumo: IA × modo × estado; termina com PRONTO ou o passo que falhou.
 

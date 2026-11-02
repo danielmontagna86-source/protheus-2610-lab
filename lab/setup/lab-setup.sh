@@ -44,7 +44,13 @@ mkdir -p "$NPM_PREFIXO"
 
 echo "== 1/7 release"
 if [ -z "$rel" ]; then
-  for r in 2610 2510; do "$PLAB_HOME/lab/bin/lib/doctor.sh" "$r" >/dev/null 2>&1 && { rel=$r; break; }; done
+  respondendo=()
+  for r in 2610 2510; do "$PLAB_HOME/lab/bin/lib/doctor.sh" "$r" >/dev/null 2>&1 && respondendo+=("$r"); done
+  rel=${respondendo[0]:-}
+  if [ "${#respondendo[@]}" -gt 1 ] && [ "$interativo" = 1 ]; then
+    read -r -p "Releases respondendo: ${respondendo[*]}. Qual usar? [$rel]: " escolha
+    case "${escolha:-$rel}" in 2610|2510) rel=${escolha:-$rel} ;; *) echo "release invalida: $escolha" >&2; exit 2 ;; esac
+  fi
 fi
 [ -n "$rel" ] || { echo "nenhuma release respondendo. No host: plab up 2610"; exit 3; }
 "$PLAB_HOME/lab/bin/lib/doctor.sh" "$rel" || exit 3

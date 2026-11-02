@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lab smoke <release> - doctor -> compile LABHELLO -> TIR leitura -> limpeza -> PRONTO | FALHOU.
+# lab smoke <release> - doctor -> interface (Playwright) -> compile LABHELLO -> limpeza -> PRONTO | FALHOU.
 # Contrato: specs/001-protheus-2610-lab/contracts/smoke-report.md
 set -uo pipefail
 . "${PLAB_HOME:-/opt/plab}/lab/bin/lib/comum.sh"
@@ -42,7 +42,7 @@ ok() { # n nome detalhe
 
 # 1. doctor
 if "$LIB/doctor.sh" "$rel" > "$evid/doctor.log" 2>&1; then
-  ok 1 doctor "WebApp, /app-root, REST e secret ok"
+  ok 1 doctor "WebApp, /app-root, REST, License Server, DBAccess e secret ok"
 else
   falhou 1 doctor "$(grep -m1 FALHOU "$evid/doctor.log" | sed -E 's/^ +//')"
 fi

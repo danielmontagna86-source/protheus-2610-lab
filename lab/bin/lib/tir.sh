@@ -15,7 +15,8 @@ validar_release "$rel" || exit 2
 tmp=$(mktemp -d /tmp/plab-tir.XXXXXX)
 chmod 0700 "$tmp"
 trap 'rm -rf "$tmp"' EXIT
-evid=${PLAB_EVID_DIR:-$tmp/evid}
+# Evidencias fora do $tmp (que o trap apaga) por padrao.
+evid=${PLAB_EVID_DIR:-${PLAB_HOME:-/opt/plab}/evidencias/$rel/tir-$(carimbo)}
 mkdir -p "$evid" "$tmp/log" "$tmp/shots"
 
 export PLAB_TIR_CONFIG="$tmp/config.json"
@@ -54,10 +55,30 @@ echo "tir $rel: $(basename "$suite") em $(url_webapp "$rel") (ambiente $(valor_r
     timeout "${PLAB_TIR_LIMITE:-900}" python -u "$suite" ) > "$tmp/tir.out" 2>&1
 rc=$?
 
-# Evidencias: saida da suite, logs e capturas do TIR (sem a config, que tem a senha).
-sed -E 's/("Password"[[:space:]]*:[[:space:]]*)"[^"]*"/\1"***"/g' "$tmp/tir.out" > "$evid/tir.log"
-cp -r "$tmp/log/." "$evid/" 2>/dev/null || true
-cp -r "$tmp/shots/." "$evid/" 2>/dev/null || true
+# Evidencias: saida da suite, logs e capturas do TIR (sem a config, que tem a senha). Tudo passa
+# antes por uma area de preparo onde o valor da senha e trocado por *** em QUALQUER arquivo (os logs
+# do proprio TIR podem registrar parametros de login).
+prep="$tmp/prep"; mkdir -p "$prep"
+cp "$tmp/tir.out" "$prep/tir.log"
+cp -r "$tmp/log/." "$prep/" 2>/dev/null || true
+cp -r "$tmp/shots/." "$prep/" 2>/dev/null || true
+python - "$rel" "$prep" <<'PY' || { erro "falha ao sanear as evidencias; nada foi copiado"; exit 3; }
+import os, re, sys
+rel, raiz = sys.argv[1], sys.argv[2]
+with open(f"/run/secrets/plab_{rel}_admin_password", "rb") as f:
+    senha = f.read().strip(b"\r\n")
+campo = re.compile(rb'("Password"\s*:\s*)"[^"]*"')
+for pasta, _, arquivos in os.walk(raiz):
+    for nome in arquivos:
+        caminho = os.path.join(pasta, nome)
+        with open(caminho, "rb") as f:
+            dados = f.read()
+        novo = campo.sub(rb'\1"***"', dados.replace(senha, b"***") if senha else dados)
+        if novo != dados:
+            with open(caminho, "wb") as f:
+                f.write(novo)
+PY
+cp -r "$prep/." "$evid/"
 cat "$evid/tir.log"
 [ "$rc" -eq 124 ] && erro "suite excedeu o limite de tempo"
 echo "resumo tir $rel: rc=$rc evidencias=$evid"

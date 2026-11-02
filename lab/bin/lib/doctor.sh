@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # lab doctor <release> - diagnostico da release pela rede plab.
-# Sai no primeiro item que falhar, nomeando-o (FR-008).
+# Sai no primeiro item que falhar, nomeando-o (FR-008). Codigos: 31 DNS, 32 TCP AppServer,
+# 33 WebApp, 34 /app-root, 35 REST, 36 License Server, 37 DBAccess, 38 secret.
 set -uo pipefail
 . "${PLAB_HOME:-/opt/plab}/lab/bin/lib/comum.sh"
 
@@ -27,30 +28,40 @@ echo "doctor $rel"
 
 passo "DNS $host"
 ip=$(getent hosts "$host" | awk '{print $1}' | head -n 1)
-[ -n "$ip" ] || falha "nome nao resolve: a stack $rel esta de pe? rode no host: plab up $rel" 11
+[ -n "$ip" ] || falha "nome nao resolve: a stack $rel esta de pe? rode no host: plab up $rel" 31
 ok "$ip"
 
 passo "TCP $host:$PLAB_PORT_TCP_INTERNA"
-(exec 3<>"/dev/tcp/$host/$PLAB_PORT_TCP_INTERNA") 2>/dev/null || falha "porta fechada: appserver parado ou iniciando" 12
+(exec 3<>"/dev/tcp/$host/$PLAB_PORT_TCP_INTERNA") 2>/dev/null || falha "porta fechada: appserver parado ou iniciando" 32
 ok
 
 passo "WebApp /webapp/"
 cod=$(http_codigo "$(url_webapp "$rel")")
-[ "$cod" = 200 ] || falha "HTTP $cod" 13
+[ "$cod" = 200 ] || falha "HTTP $cod" 33
 ok "HTTP 200"
 
 passo "Login PO UI /app-root/"
 cod=$(http_codigo "http://$host:$PLAB_PORT_TCP_INTERNA/app-root/")
-[ "$cod" = 200 ] || falha "HTTP $cod (interface nova indisponivel)" 14
+[ "$cod" = 200 ] || falha "HTTP $cod (interface nova indisponivel)" 34
 ok "HTTP 200"
 
 passo "REST /rest/"
 cod=$(http_codigo "http://$host:$PLAB_PORT_REST_INTERNA/rest/")
-[ "$cod" = 200 ] || falha "HTTP $cod" 15
+[ "$cod" = 200 ] || falha "HTTP $cod" 35
 ok "HTTP 200"
 
+# License Server e DBAccess: aliases na rede plab (stacks/<rel>/compose.yaml). Sem eles o AppServer
+# ate responde HTTP, mas login e rotinas falham.
+tcp_servico() { # rotulo host porta codigo dica
+  passo "$1 $2:$3"
+  (exec 3<>"/dev/tcp/$2/$3") 2>/dev/null || falha "porta fechada: $5" "$4"
+  ok
+}
+tcp_servico "License Server" "license-server-$rel" 5555 36 "License Server parado; veja: plab logs $rel license"
+tcp_servico "DBAccess" "dbaccess-$rel" 7890 37 "DBAccess parado ou sem banco; veja: plab logs $rel dbaccess"
+
 passo "Senha Admin (secret)"
-senha_admin "$rel" >/dev/null 2>&1 || falha "secret vazio: preencha PLAB_${rel}_ADMIN_PASSWORD no .env" 16
+senha_admin "$rel" >/dev/null 2>&1 || falha "secret vazio: preencha PLAB_${rel}_ADMIN_PASSWORD no .env" 38
 ok "presente"
 
 echo "doctor $rel: OK"

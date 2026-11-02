@@ -10,6 +10,12 @@ function Resultado([string] $cItem, [int] $nOcorr, [string] $cDetalhe = '') {
     '{0} {1,-52} ocorrencias={2} {3}' -f $cStatus, $cItem, $nOcorr, $cDetalhe
     if ($nOcorr -gt 0) { $script:nFalhas++ }
 }
+$nNaoVer = 0
+function Nao-Verificado([string] $cItem, [string] $cMotivo) {
+    # Item que nao pode ser conferido agora: nunca vira OK.
+    'N/VER  {0,-52} {1}' -f $cItem, $cMotivo
+    $script:nNaoVer++
+}
 
 # 1. gitleaks em todo o historico git (somente leitura; achados redigidos)
 $cSaida = & docker run --rm -v "${cRaiz}:/repo:ro" $cGitleaks git /repo --redact --no-banner --exit-code 3 -v 2>&1
@@ -39,10 +45,34 @@ Push-Location $cRaiz
 $aHist = & git log --all -p --no-color 2>$null
 Pop-Location
 Resultado 'senhas do .env no historico git' (Contar-Valores $aHist)
-$aImg = (& docker history --no-trunc plab-lab:local 2>$null) + (& docker image inspect plab-lab:local 2>$null)
-Resultado 'senhas do .env na imagem plab-lab (history/inspect)' (Contar-Valores $aImg)
+& docker image inspect plab-lab:local *> $null
+if ($LASTEXITCODE -eq 0) {
+    $aImg = (& docker history --no-trunc plab-lab:local 2>$null) + (& docker image inspect plab-lab:local 2>$null)
+    Resultado 'senhas do .env na imagem plab-lab (history/inspect)' (Contar-Valores $aImg)
+} else { Nao-Verificado 'senhas do .env na imagem plab-lab (history/inspect)' 'imagem plab-lab:local ausente' }
 $cIdLab = & docker ps -q --filter 'label=com.docker.compose.project=plab-lab' --filter 'label=com.docker.compose.service=lab'
-if ($cIdLab) { Resultado 'senhas do .env no inspect do container lab' (Contar-Valores (& docker inspect $cIdLab)) }
+if ($cIdLab) {
+    Resultado 'senhas do .env no inspect do container lab' (Contar-Valores (& docker inspect $cIdLab))
+    # Chaves e tokens que so existem no container: conferidos la dentro, sem sair de la.
+    foreach ($cLinha in (& docker exec $cIdLab bash /opt/plab/lab/bin/lib/scan-interno.sh arquivos 2>$null)) {
+        $aP = $cLinha -split '\s+'
+        if ($aP[0] -eq 'valores') { "       (container lab: $($aP[1]) valores sensiveis conhecidos)"; continue }
+        Resultado "segredos do container lab em $($aP[0])" ([int] $aP[1])
+    }
+    $nLogs = 0
+    $aIds = & docker ps -aq --filter 'label=com.docker.compose.project'
+    foreach ($cId in $aIds) {
+        $cProj = & docker inspect $cId --format '{{index .Config.Labels "com.docker.compose.project"}}'
+        if ($cProj -notlike 'plab-*') { continue }
+        # O texto dos logs vai do host para o container; os valores nunca saem do container.
+        $cRes = & cmd /c "docker logs $cId 2>&1 | docker exec -i $cIdLab bash /opt/plab/lab/bin/lib/scan-interno.sh stdin"
+        $nLogs += [int] (($cRes -split '\s+')[1])
+    }
+    Resultado 'segredos (senhas, chaves, tokens) nos docker logs plab-*' $nLogs
+} else {
+    Nao-Verificado 'segredos do container lab (chaves, tokens, workspace)' 'container lab parado: plab up lab'
+    Nao-Verificado 'segredos nos docker logs plab-*' 'container lab parado'
+}
 $cEvid = Join-Path $cRaiz 'evidencias'
 $aEv = Get-ChildItem $cEvid -Recurse -File -Include *.log,*.json,*.out,*.txt -ErrorAction SilentlyContinue | Get-Content -ErrorAction SilentlyContinue
 Resultado 'senhas do .env nas evidencias (log/json/txt)' (Contar-Valores $aEv)
@@ -57,5 +87,6 @@ $aHistEv = & git -C $cRaiz log --all --name-only --pretty=format: -- evidencias 
 Resultado 'evidencias no historico git (reescrever antes de publicar)' $aHistEv.Count (($aHistEv | Select-Object -First 3) -join ',')
 
 if ($nFalhas -gt 0) { "plab scan: $nFalhas item(ns) com ocorrencias"; exit 1 }
+if ($nNaoVer -gt 0) { "plab scan: zero ocorrencias, mas $nNaoVer item(ns) NAO verificados"; exit 2 }
 'plab scan: zero ocorrencias'
 exit 0
