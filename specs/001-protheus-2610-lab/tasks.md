@@ -148,9 +148,9 @@ commit local em português (Princípio VI).
 - [ ] T048 [P] Implementar `plab scan` (ps1 e bash): `git grep` por padrões de chave/senha/token, `.env.example` sem valores em `*_PASSWORD|_TOKEN|_KEY|_SECRET`, `docker history --no-trunc` e `docker inspect` da imagem lab, logs do setup
 - [ ] T049 [P] Rodar `shellcheck` em `lab/**/*.sh`, `plab` e corrigir avisos relevantes
 - [ ] T050 Escrever `README.md`: pré-requisitos com RAM/disco medidos (cada release e as duas juntas), passo a passo, portas, troubleshooting (porta ocupada, licença, login TIR, RPO em uso), fontes de imagem principal/reserva, avisos de licença (TOTVS, imagens de comunidade, IAs), o que o lab não cobre
-- [ ] T051 Verificação do zero: `plab down all --volumes`, clone limpo em pasta temporária, `.env` a partir do `.env.example`, `plab up 2610`, `plab up 2510`, `plab up lab`, `plab smoke` nas duas; registrar tempos (SC-001)
-- [ ] T052 `plab scan` com zero ocorrências; `docker ps` final comparado ao baseline T001 (SC-008)
-- [ ] T053 Relatório final em `STATUS.md`: funciona (com evidência), pendente, riscos (fonte de comunidade, License dev, TIR 1 worker, RAM), AGUARDANDO_USUARIO, status de SC-001..SC-009; fase marcada AGUARDANDO_REVISAO
+- [x] T051 Verificação do zero: `plab down all --volumes`, clone limpo em pasta temporária, `.env` a partir do `.env.example`, `plab up 2610`, `plab up 2510`, `plab up lab`, `plab smoke` nas duas; registrar tempos (SC-001)
+- [x] T052 `plab scan` com zero ocorrências; `docker ps` final comparado ao baseline T001 (SC-008)
+- [x] T053 Relatório final em `STATUS.md`: funciona (com evidência), pendente, riscos (fonte de comunidade, License dev, TIR 1 worker, RAM), AGUARDANDO_USUARIO, status de SC-001..SC-009; fase marcada AGUARDANDO_REVISAO
 
 ---
 

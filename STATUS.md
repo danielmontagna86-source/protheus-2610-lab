@@ -4,9 +4,9 @@
 
 ## Fase atual
 
-Implementação das US1–US5 concluída e verificada nesta máquina. Falta o **gate final da
-constituição**: verificação do zero (T051), comparação com o baseline (T052) e relatório (T053).
-Enquanto esse gate não passar, o projeto **não está pronto para publicação**.
+Gate final da constituição executado em 03/11/2026 (T051–T053): relatório em
+`docs/relatorio-final-2026-11-03.md`. US1–US5 verificadas do zero; US6 parcial (login real de
+opencode/Gemini). Publicação pública: só com nova autorização do dono.
 
 ## Decisões vigentes
 
@@ -76,12 +76,12 @@ Enquanto esse gate não passar, o projeto **não está pronto para publicação*
 ## Em andamento
 
 - Revisão independente: L1–L12 (baixos).
-- T047 (opencode/Gemini real), T052–T053; compilação na 2510 do zero exige trocar a senha do Admin por uma sem `$`.
+- T047 (opencode/Gemini real); compilação na 2510 do zero exige trocar a senha do Admin por uma sem `$`.
 
 ## Pendências
 
 - **T047 (US6)**: parte automática OK em 03/11/2026 (`test_setup_idempotente.sh 2610 claude,codex,opencode,gemini`: idempotente; opencode 1.19.5 instalado, wrapper e 36 skills, `nao_testado`; Gemini `nao_suportado` em modo conta; Claude/Codex seguem `testado_ok`). Falta login real de opencode/Gemini com conta/chave do dono.
-- T051–T053 (gate final). US6 (opencode e Gemini, PR #1) a revisar.
+- US6: login real de opencode/Gemini.
 - Conferir a versão da LIB pela interface (2610: autor declara 20261016).
 
 ## Desvios registrados
