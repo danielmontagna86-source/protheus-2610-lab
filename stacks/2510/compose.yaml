@@ -17,8 +17,10 @@ services:
   db:
     image: ${PLAB_2510_IMG_DB:?defina PLAB_2510_IMG_DB no .env}
     platform: linux/amd64
-    user: root
-    restart: unless-stopped
+    # Sem "user": a imagem nao define USER e o entrypoint oficial do Postgres (docker-entrypoint.sh)
+    # roda como root so para ajustar o dono do PGDATA e passa para o usuario postgres (gosu) antes de
+    # iniciar o servidor. O "user: root" que havia aqui era o proprio padrao da imagem.
+    restart: ${PLAB_RESTART:-unless-stopped}
     ports:
       - "127.0.0.1:${PLAB_2510_PORT_DB:-25432}:5432"
     volumes:
@@ -39,7 +41,7 @@ services:
   license:
     image: ${PLAB_2510_IMG_LICENSE:?defina PLAB_2510_IMG_LICENSE no .env}
     platform: linux/amd64
-    restart: unless-stopped
+    restart: ${PLAB_RESTART:-unless-stopped}
     ports:
       - "127.0.0.1:${PLAB_2510_PORT_LICMON:-25020}:8020"
     ulimits: *ulimits
@@ -61,7 +63,7 @@ services:
   dbaccess:
     image: ${PLAB_2510_IMG_DBACCESS:?defina PLAB_2510_IMG_DBACCESS no .env}
     platform: linux/amd64
-    restart: unless-stopped
+    restart: ${PLAB_RESTART:-unless-stopped}
     ulimits: *ulimits
     depends_on:
       db: {condition: service_healthy}
@@ -102,7 +104,7 @@ services:
   appserver:
     image: ${PLAB_2510_IMG_APPSERVER:?defina PLAB_2510_IMG_APPSERVER no .env}
     platform: linux/amd64
-    restart: unless-stopped
+    restart: ${PLAB_RESTART:-unless-stopped}
     # P2510D com RPO proprio: ver stacks/2510/entrypoint-lab.sh.
     entrypoint: ["/bin/bash", "/plab/entrypoint-lab.sh"]
     environment:

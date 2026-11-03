@@ -137,6 +137,12 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 - **Sem privilégios extras.** Login e menu funcionam sem `/dev/mem`; o log `Can't read memory
   from /dev/mem` é só ruído. Se o License Server recusar licenças, há o override opcional
   `stacks/override/devmem.yaml`.
+- **Container lab endurecido.** Roda como `lab` (uid 1000) com `cap_drop: [ALL]` e
+  `no-new-privileges`; o Chrome usa `--no-sandbox` por isso. O `db` das releases não força
+  usuário: o entrypoint oficial do Postgres ajusta o `PGDATA` como root e inicia o servidor como
+  `postgres`.
+- **Reinício automático.** `PLAB_RESTART` no `.env` (padrão `unless-stopped`). Com `no`, as stacks
+  só sobem com `plab up` e não voltam sozinhas quando o Docker inicia.
 - **Senha do Admin da 2510.** A base foi publicada com a última troca em 12/10/2025. Passado o
   prazo da política, o login exige troca obrigatória. O `plab up` aplica
   `stacks/sql/renova-senha-admin.sql`, que atualiza só a **data** da última troca, nunca a senha,

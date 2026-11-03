@@ -44,7 +44,11 @@ services:
         PLAYWRIGHT_VERSION: ${PLAB_PLAYWRIGHT:-1.64.1}
     image: plab-lab:local
     init: true
-    restart: unless-stopped
+    restart: ${PLAB_RESTART:-unless-stopped}
+    # Usuario lab (uid 1000) sem nenhuma capability e sem ganhar privilegio por setuid. O Chrome roda
+    # com --no-sandbox (ver lab/Dockerfile), entao nao precisa de SYS_ADMIN.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     shm_size: 1g
     environment:
       # Nomes e portas internas das releases (rede plab). Senhas: so pelo .env local.
