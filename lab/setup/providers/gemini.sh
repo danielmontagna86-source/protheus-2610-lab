@@ -4,8 +4,10 @@
 # authentication, cli/headless, cli/skills, cli/gemini-md, reference/configuration (lidas no
 # repositorio oficial google-gemini/gemini-cli, pasta docs).
 #  - pacote npm @google/gemini-cli; general.enableAutoUpdate=false em ~/.gemini/settings.json;
-#  - conta ("Sign in with Google"): exige navegador numa maquina que alcance o terminal; a doc nao
-#    descreve fluxo por codigo de dispositivo ou URL copiavel -> NAO oferecido no lab;
+#  - conta ("Login with Google", authType oauth-personal): com NO_BROWSER=true o CLI interativo mostra
+#    "Please visit the following URL to authorize the application", o Google exibe um codigo em
+#    codeassist.google.com/authcode e o CLI pede "Enter the authorization code" (verificado no
+#    0.66.0 em 03/11/2026; com -p o login manual e recusado). Credencial em ~/.gemini/oauth_creds.json;
 #  - chave: GEMINI_API_KEY (Google AI Studio), lida so por variavel de ambiente (sem login por
 #    stdin) -> carregada so pelo wrapper, a partir de ~/.config/lab/secrets.env;
 #  - skills em ~/.gemini/skills/<nome>/SKILL.md (alias ~/.agents/skills); instrucoes: GEMINI.md.
@@ -14,7 +16,16 @@ GEMINI_PACOTE="@google/gemini-cli"
 GEMINI_DIR_SKILLS="${HOME}/.gemini/skills"
 GEMINI_SETTINGS="${HOME}/.gemini/settings.json"
 
-gemini_modos() { echo "api_key"; }
+gemini_modos() { echo "conta api_key"; }
+GEMINI_OAUTH="${HOME}/.gemini/oauth_creds.json"
+
+# Grava o tipo de autenticacao no settings.json do Gemini, preservando o resto.
+gemini_tipo_auth() { # oauth-personal | gemini-api-key
+  local tmp base='{}'; tmp=$(mktemp)
+  [ -s "$GEMINI_SETTINGS" ] && base=$(cat "$GEMINI_SETTINGS")
+  jq --arg t "$1" '.security.auth.selectedType = $t' <<<"$base" > "$tmp" && cp "$tmp" "$GEMINI_SETTINGS"
+  rm -f "$tmp"
+}
 
 gemini_instalar() {
   local versao=${PLAB_GEMINI_CLI:?PLAB_GEMINI_CLI nao definido}
@@ -38,24 +49,48 @@ gemini_instalar() {
   mkdir -p "${HOME}/.local/bin"
   cat > "${HOME}/.local/bin/gemini" <<EOF
 #!/usr/bin/env bash
-# gerado por lab setup: carrega apenas GEMINI_API_KEY de ~/.config/lab/secrets.env, se existir
-if grep -q '^GEMINI_API_KEY=' "\$HOME/.config/lab/secrets.env" 2>/dev/null; then
+# gerado por lab setup: carrega apenas GEMINI_API_KEY de ~/.config/lab/secrets.env, e so no modo
+# api_key (no modo conta vale o login Google em ~/.gemini/oauth_creds.json)
+modo=\$(jq -r '.ias.gemini.auth // empty' "\$HOME/.config/lab/state.json" 2>/dev/null)
+if [ "\$modo" = api_key ] && grep -q '^GEMINI_API_KEY=' "\$HOME/.config/lab/secrets.env" 2>/dev/null; then
   export GEMINI_API_KEY="\$(set -a; . "\$HOME/.config/lab/secrets.env"; printf '%s' "\$GEMINI_API_KEY")"
 fi
+unset modo
 exec "${NPM_PREFIXO}/bin/gemini" "\$@"
 EOF
   chmod 755 "${HOME}/.local/bin/gemini"
 }
 
-gemini_autenticar() { # modo: api_key (conta nao suportado) ; interativo: 1|0
+gemini_autenticar() { # modo: conta|api_key ; interativo: 1|0
   local modo=$1 interativo=$2
-  [ "$modo" = api_key ] || { echo "  gemini: modo $modo nao suportado no lab (use api_key)"; return 1; }
-  if segredo_existe GEMINI_API_KEY && [ "$interativo" = 1 ]; then
-    read -r -p "  ja existe chave do Gemini; substituir? [s/N] " r; [ "$r" = s ] || return 0
-  elif segredo_existe GEMINI_API_KEY; then return 0; fi
-  [ "$interativo" = 1 ] || { return 2; }
-  echo "  gemini: crie a chave em https://aistudio.google.com/app/apikey"
-  segredo_ler GEMINI_API_KEY "  GEMINI_API_KEY" || return 2
+  case "$modo" in
+    conta)
+      gemini_tipo_auth oauth-personal
+      if [ -s "$GEMINI_OAUTH" ]; then
+        chmod 600 "$GEMINI_OAUTH"
+        if [ "$interativo" = 1 ]; then
+          read -r -p "  gemini: ja existe login Google; refazer? [s/N] " r; [ "$r" = s ] || return 0
+          rm -f "$GEMINI_OAUTH"
+        else return 0; fi
+      fi
+      [ "$interativo" = 1 ] || return 2
+      echo "  gemini: login com conta Google (sem chave de API):"
+      echo "    1. copie a URL que aparecer e abra no navegador do seu computador;"
+      echo "    2. entre com sua conta Google e autorize; o Google mostra um codigo;"
+      echo "    3. cole o codigo em 'Enter the authorization code' e tecle Enter;"
+      echo "    4. quando o Gemini abrir, digite /quit e tecle Enter para voltar ao setup."
+      ( cd /workspace 2>/dev/null || cd "$HOME"; NO_BROWSER=true "${HOME}/.local/bin/gemini" ) || true
+      [ -s "$GEMINI_OAUTH" ] || { echo "  gemini: login nao concluido (sem $GEMINI_OAUTH)"; return 2; }
+      chmod 600 "$GEMINI_OAUTH" ;;
+    api_key)
+      gemini_tipo_auth gemini-api-key
+      if segredo_existe GEMINI_API_KEY && [ "$interativo" = 1 ]; then
+        read -r -p "  ja existe chave do Gemini; substituir? [s/N] " r; [ "$r" = s ] || return 0
+      elif segredo_existe GEMINI_API_KEY; then return 0; fi
+      [ "$interativo" = 1 ] || { return 2; }
+      echo "  gemini: crie a chave em https://aistudio.google.com/app/apikey"
+      segredo_ler GEMINI_API_KEY "  GEMINI_API_KEY" || return 2 ;;
+  esac
 }
 
 gemini_testar() {

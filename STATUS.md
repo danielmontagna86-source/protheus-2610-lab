@@ -80,7 +80,7 @@ opencode/Gemini). Publicação pública: só com nova autorização do dono.
 
 ## Pendências
 
-- **T047 (US6)**: parte automática OK em 03/11/2026 (`test_setup_idempotente.sh 2610 claude,codex,opencode,gemini`: idempotente; opencode 1.19.5 instalado, wrapper e 36 skills, `nao_testado`; Gemini `nao_suportado` em modo conta; Claude/Codex seguem `testado_ok`). Falta login real de opencode/Gemini com conta/chave do dono.
+- **T047 (US6)**: parte automática OK em 03/11/2026 (`test_setup_idempotente.sh 2610 claude,codex,opencode,gemini`: idempotente; opencode 1.19.5 instalado, wrapper e 36 skills, `nao_testado`; Gemini: login de conta Google verificado até o pedido do código em 03/11/2026 (R-07.2), modo `conta` passa a ser o padrão; Claude/Codex seguem `testado_ok`). Falta login real de opencode/Gemini com conta/chave do dono.
 - US6: login real de opencode/Gemini.
 - Conferir a versão da LIB pela interface (2610: autor declara 20261016).
 

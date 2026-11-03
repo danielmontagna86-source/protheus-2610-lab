@@ -174,3 +174,13 @@ liberados na rede. As mesmas páginas foram lidas nos repositórios oficiais, qu
   TIR não concluiu por causa do fluxo de login PO UI (relatório VALIDACAO-8GB-20260910.md).
 - **Decision**: provar login TIR no início da Fase 3 em cada release, antes de escrever cenários;
   se falhar, registrar bloqueio com captura e avaliar adaptador versionado de login.
+
+### R-07.2 Correção (03/11/2026): Gemini CLI aceita login de conta sem navegador local
+
+Verificado no pacote instalado `@google/gemini-cli@0.66.0`: com `security.auth.selectedType =
+"oauth-personal"` e `NO_BROWSER=true`, o CLI **interativo** mostra "Please visit the following URL to
+authorize the application", o Google exibe o código em `codeassist.google.com/authcode` e o CLI pede
+"Enter the authorization code"; a credencial fica em `~/.gemini/oauth_creds.json`. Com `-p` (não
+interativo) o login manual é recusado ("Manual authorization is required but the current session is
+non-interactive"), por isso o setup abre o CLI interativo e o usuário sai com `/quit`. A conclusão
+anterior (R-07.1, "só api_key") estava errada: a sessão de nuvem não conseguiu ler a documentação.
