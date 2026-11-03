@@ -80,7 +80,7 @@ opencode/Gemini). Publicação pública: só com nova autorização do dono.
 
 ## Pendências
 
-- **T047 (US6)**: parte automática OK em 03/11/2026 (`test_setup_idempotente.sh 2610 claude,codex,opencode,gemini`: idempotente; opencode 1.19.5 instalado, wrapper e 36 skills, `nao_testado`; Gemini: login de conta Google concluído com a conta do dono, mas o Google recusa o plano gratuito de conta pessoal para o Gemini CLI (`UNSUPPORTED_CLIENT`, R-07.4); caminho suportado: chave de API, `testado_ok` com a chave do dono em 03/11/2026 (teste com `gemini-2.5-flash`; o modelo padrão respondeu 503 por demanda); Claude/Codex seguem `testado_ok`). Falta login real de opencode/Gemini com conta/chave do dono.
+- **T047 (US6)**: 03/11/2026. Idempotência com as 4 IAs OK. **Gemini `testado_ok` com chave de API** do dono (teste com `gemini-2.5-flash`; o modelo padrão respondeu 503 por demanda). Login de conta Google funciona, mas o Google recusa o plano gratuito de conta pessoal para o Gemini CLI (`UNSUPPORTED_CLIENT`, research R-07.4). opencode 1.19.5 instalado (wrapper e 36 skills), `nao_testado`: falta login com conta/chave do dono.
 - US6: login real de opencode/Gemini.
 - Conferir a versão da LIB pela interface (2610: autor declara 20261016).
 
