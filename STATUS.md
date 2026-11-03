@@ -79,7 +79,7 @@ Enquanto esse gate não passar, o projeto **não está pronto para publicação*
 
 ## Pendências
 
-- **T047 (US6) em teste local**: `test_setup_idempotente.sh 2610 claude,codex,opencode,gemini` no container lab; login real de opencode/Gemini depende de conta/chave do dono.
+- **T047 (US6)**: parte automática OK em 03/11/2026 (`test_setup_idempotente.sh 2610 claude,codex,opencode,gemini`: idempotente; opencode 1.19.5 instalado, wrapper e 36 skills, `nao_testado`; Gemini `nao_suportado` em modo conta; Claude/Codex seguem `testado_ok`). Falta login real de opencode/Gemini com conta/chave do dono.
 - T051–T053 (gate final). US6 (opencode e Gemini, PR #1) a revisar.
 - Conferir a versão da LIB pela interface (2610: autor declara 20261016).
 
