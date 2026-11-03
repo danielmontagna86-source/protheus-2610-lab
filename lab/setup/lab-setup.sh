@@ -132,9 +132,12 @@ for d in "${dirs_skills[@]}"; do
 done
 # shellcheck disable=SC2016  # os acentos graves sao markdown, nao expansao
 lista=$(echo "$nomes" | sed '/^$/d; s/^/- `/; s/$/`/')
-gerar_instrucoes "$rel" "${lista:-- (nenhuma IA configurada)}" "$WORKSPACE"
+if gerar_instrucoes "$rel" "${lista:-- (nenhuma IA configurada)}" "$WORKSPACE"; then
+  echo "  AGENTS.md, CLAUDE.md e GEMINI.md atualizados em $WORKSPACE (bloco plab)"
+else
+  echo "  aviso: instrucoes do workspace atualizadas em parte (ver avisos acima)"
+fi
 estado_set '.workspace.instrucoes' "AGENTS.md CLAUDE.md GEMINI.md"
-echo "  AGENTS.md, CLAUDE.md e GEMINI.md atualizados em $WORKSPACE (bloco plab)"
 
 echo "== 7/7 smoke"
 st_smoke="pulado"
