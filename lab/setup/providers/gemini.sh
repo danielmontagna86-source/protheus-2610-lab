@@ -100,18 +100,23 @@ gemini_autenticar() { # modo: conta|api_key ; interativo: 1|0
 }
 
 gemini_testar() {
-  local saida motivo
-  saida=$(timeout 180 "${HOME}/.local/bin/gemini" --skip-trust -p "Responda apenas: OK" 2>&1 | grep -av -e '256-color' -e 'Ripgrep is not available')
-  if grep -q 'OK' <<<"$saida" && ! grep -qi 'error' <<<"$saida"; then return 0; fi
-  # Recusa do Google ao plano gratuito de conta pessoal (visto em 03/11/2026: IneligibleTierError,
-  # UNSUPPORTED_CLIENT, "no longer supported for Gemini Code Assist for individuals").
-  motivo=$(grep -aoE "reasonCode: '[A-Z_]+'|no longer supported for [^.]*" <<<"$saida" | head -n 2 | tr '
+  local resposta erros motivo modelo=${PLAB_GEMINI_MODELO_TESTE:-gemini-2.5-flash}
+  # Modelo leve no teste: o padrao do CLI ja respondeu 503 "high demand" com chave valida (03/11/2026).
+  # Julga pela resposta final (stdout); avisos de nova tentativa vao para stderr e nao reprovam.
+  erros=$(mktemp)
+  resposta=$(timeout 180 "${HOME}/.local/bin/gemini" --skip-trust -m "$modelo" -p "Responda apenas: OK" 2>"$erros")
+  if grep -qx '[[:space:]]*OK[.!]*[[:space:]]*' <<<"$(tail -n 1 <<<"$resposta")"; then rm -f "$erros"; return 0; fi
+  # Recusa do Google ao plano gratuito de conta pessoal (visto em 03/11/2026: UNSUPPORTED_CLIENT).
+  motivo=$(grep -aoE "reasonCode: '[A-Z_]+'|no longer supported for [^.]*" "$erros" | head -n 2 | tr '
 ' ' ')
   if [ -n "$motivo" ]; then
     echo "recusado pelo Google: ${motivo}- use --auth api_key (chave do AI Studio)"
+  elif grep -q '"code": *503\|status 503' "$erros"; then
+    echo "modelo $modelo sobrecarregado no Google (503); tente de novo mais tarde"
   else
-    echo "falhou: $(grep -aiE 'error' <<<"$saida" | head -n 1 | sed -E 's#[A-Za-z0-9_./-]{30,}#<omitido>#g' | cut -c1-200)"
+    echo "falhou: $(grep -aiE 'error' "$erros" | head -n 1 | sed -E 's#[A-Za-z0-9_./-]{30,}#<omitido>#g' | cut -c1-200)"
   fi
+  rm -f "$erros"
   return 1
 }
 
