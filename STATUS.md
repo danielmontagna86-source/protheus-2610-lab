@@ -124,13 +124,27 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
     (texto idêntico ao aprovado);
   - primeiro comentário com o link do artigo, o e-book e o "Comente LAB" (repositório ainda privado).
 
+## Conferência pré-publicação (03/11/2026)
+
+- Autorização do dono para abrir o repositório e seguir o plano: "Tudo aprovado e siga conforme suas
+  sugestões e já siga com a página também" (03/11/2026).
+- Revisão independente (PR #2) incorporada: `docs/revisao/` traz o relatório e a situação de cada
+  achado (17 resolvidos; 12 de severidade baixa ou desvio registrado viram issues públicas).
+- `plab scan`: zero ocorrências em todos os itens (gitleaks, histórico, imagem, container lab,
+  docker logs, evidências e arquivos versionados).
+- `git ls-files`: sem `.env`, evidências, chaves, RPO, includes ou bundles.
+- `plab smoke 2610` → PRONTO (evidências `2610/20261103-173443`); `plab smoke 2510` → PRONTO, com
+  o passo 5 de recuperação ok (evidências `2510/20261103-173741`). Cenários de leitura 5/5 nas duas
+  releases (12:29 e 12:36 do mesmo dia).
+- E-mail dos commits mantido: o dono já o usa em commits de outros repositórios públicos, e os PRs
+  #1 e #2 guardam o commit original de qualquer forma. Reescrever o histórico não esconderia nada.
+
 ## Bloqueios
 
 Nenhum.
 
 ## AGUARDANDO_USUARIO
 
-- Publicação pública do repositório: exige nova autorização.
 - Próximos passos de git e divulgação: ver `docs/plano-publicacao.md`.
 
 ## Riscos
