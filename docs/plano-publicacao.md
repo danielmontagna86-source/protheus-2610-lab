@@ -14,6 +14,19 @@ antes de ser executado. Os demais o agente pode fazer quando o passo anterior es
 - LinkedIn: artigo, post com carrossel e primeiro comentário publicados em 03/11/2026 (links no
   `STATUS.md`, seção Divulgação). O CTA atual é "Comente LAB", porque o repositório ainda é privado.
 
+## Andamento (03/11/2026, fim da tarde)
+
+- Fase 1 concluída: revisão incorporada (`docs/revisao/`), PR #2 fechado, `plab scan` zero, smoke
+  PRONTO nas duas releases, tag `v1.0.0` no remoto.
+- Fase 2 preparada: descrição, tópicos, homepage, issues habilitadas, release `v1.0.0` e 12 issues
+  (#3–#14). **Falta só tornar o repositório público**: o comando foi bloqueado pela política de
+  segurança do agente, então o dono executa (Settings → Danger Zone → Change visibility, ou o
+  comando do passo 5).
+- Página `lp.protheusialab.com.br/lab/` montada no padrão do portal (tokens, `_shared/_nav.html`,
+  `_shared/_footer.html` e `propagate.py`, agora com 11 itens) e validada em cópia do site
+  (desktop 1440 px e celular 375 px, sem rolagem horizontal, imagens carregadas). Publicação no site
+  fica para logo depois da abertura do repositório, porque os botões apontam para o GitHub.
+
 ## Fase 1 — Fechar o repositório privado (agente)
 
 1. Commitar `STATUS.md` e este plano e enviar para `origin/main` (privado, já autorizado).
