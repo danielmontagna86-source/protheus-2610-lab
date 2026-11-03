@@ -1,12 +1,12 @@
 # STATUS — Protheus 2610 Lab
 
-Última atualização: 2026-11-02
+Última atualização: 2026-11-03
 
 ## Fase atual
 
 Gate final da constituição executado em 03/11/2026 (T051–T053): relatório em
-`docs/relatorio-final-2026-11-03.md`. US1–US5 verificadas do zero; US6 parcial (login real de
-opencode/Gemini). Publicação pública: só com nova autorização do dono.
+`docs/relatorio-final-2026-11-03.md`. US1–US5 verificadas do zero; US6 concluída para o Gemini (chave de API);
+opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pública: só com nova autorização do dono.
 
 ## Decisões vigentes
 
@@ -76,16 +76,16 @@ opencode/Gemini). Publicação pública: só com nova autorização do dono.
 ## Em andamento
 
 - Revisão independente: L1–L12 (baixos).
-- T047 (opencode/Gemini real); compilação na 2510 do zero exige trocar a senha do Admin por uma sem `$`.
+- Compilação na 2510 do zero exige trocar a senha do Admin por uma sem `$`.
 
 ## Pendências
 
-- **T047 (US6)**: 03/11/2026. Idempotência com as 4 IAs OK. **Gemini `testado_ok` com chave de API** do dono (teste com `gemini-2.5-flash`; o modelo padrão respondeu 503 por demanda). Login de conta Google funciona, mas o Google recusa o plano gratuito de conta pessoal para o Gemini CLI (`UNSUPPORTED_CLIENT`, research R-07.4). opencode 1.19.5 instalado (wrapper e 36 skills), `nao_testado`: falta login com conta/chave do dono.
-- US6: login real de opencode/Gemini.
+- **T047 (US6)**: 03/11/2026. Idempotência com as 4 IAs OK. **Gemini `testado_ok` com chave de API** do dono (teste com `gemini-2.5-flash`; o modelo padrão respondeu 503 por demanda). Login de conta Google funciona, mas o Google recusa o plano gratuito de conta pessoal para o Gemini CLI (`UNSUPPORTED_CLIENT`, research R-07.4). **opencode fora desta versão por decisão do dono em 03/11/2026**: o provider continua no código e instala (wrapper e 36 skills), mas fica `nao_testado` e não entra nos critérios de pronto.
 - Conferir a versão da LIB pela interface (2610: autor declara 20261016).
 
 ## Desvios registrados
 
+- **US6 / opencode**: fora desta versão por decisão do dono em 03/11/2026. Provider mantido no código, sem login testado.
 - **FR-005 / T018 (fonte reserva)**: fora desta versão. As reservas exigem outro layout de volumes,
   ini e senhas, e testá-las de ponta a ponta dobra o download (~25 GB). Mitigação: digests fixos das
   imagens principais e documentação das reservas no README. Revisitar se as imagens principais
@@ -112,7 +112,6 @@ Nenhum.
 - Publicação pública do repositório: exige nova autorização.
 - Confirmar a renovação automática da data de troca de senha do Admin na 2510 (ou desligar com
   `PLAB_RENOVAR_SENHA_ADMIN=` vazio e trocar a senha manualmente a cada vencimento).
-- **US6**: testar opencode e Gemini com sua conta/chave (`lab setup --ia opencode` e `lab setup --ia gemini --auth api_key`)? Sem isso ficam "não testado".
 
 ## Riscos
 

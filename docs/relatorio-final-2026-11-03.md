@@ -12,7 +12,7 @@ Desktop (WSL2). Repositório privado; publicação pública depende de nova auto
 | US3 smoke | 2610 PRONTO; 2510 PRONTO com senha sem `$` | na base recém-criada a 2510 para na compilação (código 22) |
 | US4 assistente de IA | ok | Claude Code e Codex `testado_ok` por login de conta; setup idempotente |
 | US5 cenários de leitura | 10/10 | 5 cenários × 2 releases, todos saindo por "Log Off → Finalizar" |
-| US6 opencode e Gemini | parcial | instalação e idempotência ok; login real não testado (credencial do dono) |
+| US6 opencode e Gemini | ok (Gemini) | Gemini `testado_ok` com chave de API; opencode fora desta versão por decisão do dono |
 
 ## Verificação do zero (T051)
 
@@ -44,7 +44,7 @@ comando do lab age sobre esse projeto.
 
 ## Pendências
 
-- Login real de opencode e Gemini (T047).
+- opencode: fora desta versão (decisão do dono); provider fica no código sem login testado.
 - Fonte reserva das imagens (FR-005): desvio registrado.
 - Achados baixos da revisão independente (L1–L12).
 - Publicação pública, divulgação no LinkedIn e marca no nome do projeto: decisão do dono.

@@ -139,7 +139,7 @@ commit local em português (Princípio VI).
 
 - [x] T045 [P] [US6] Confirmar na documentação oficial de opencode e Gemini CLI auth sem navegador, variável de API key e diretório de skills/instruções; registrar em `research.md`
 - [x] T046 [US6] Escrever `lab/setup/providers/opencode.sh` e `lab/setup/providers/gemini.sh` com o mesmo contrato de T033
-- [ ] T047 [US6] Rodar setup e testes de idempotência com as quatro IAs; status final por IA × modo
+- [x] T047 [US6] Rodar setup e testes de idempotência com as quatro IAs; status final por IA × modo (idempotência 4/4; Gemini `testado_ok` por chave; opencode fora desta versão por decisão do dono em 03/11/2026)
 
 ---
 

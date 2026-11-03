@@ -114,7 +114,7 @@ Roda dentro do container `lab` e precisa de terminal interativo:
 |---|---|---|---|---|---|
 | Claude Code | `@anthropic-ai/claude-code` | `claude auth login` (URL + código colado) | `ANTHROPIC_API_KEY` | `~/.claude/skills` | conta testada |
 | Codex | `@openai/codex` | `codex login --device-auth` | `OPENAI_API_KEY` (via stdin do `codex login --with-api-key`) | `~/.codex/skills` | conta testada |
-| opencode | `opencode-ai` | `opencode auth login` (no container prefira código de dispositivo, ex.: GitHub Copilot) | `OPENCODE_API_KEY` ou `ANTHROPIC_API_KEY` | `~/.config/opencode/skills` | não testado |
+| opencode | `opencode-ai` | `opencode auth login` (no container prefira código de dispositivo, ex.: GitHub Copilot) | `OPENCODE_API_KEY` ou `ANTHROPIC_API_KEY` | `~/.config/opencode/skills` | fora desta versão (instala, login não testado) |
 | Gemini CLI | `@google/gemini-cli` | login Google funciona, mas o Google **recusa conta pessoal gratuita** para o Gemini CLI (`UNSUPPORTED_CLIENT`, 03/11/2026) | `GEMINI_API_KEY` (caminho suportado) | `~/.gemini/skills` | chave testada (`gemini-2.5-flash`); conta: recusada pelo Google |
 
 Fontes oficiais e datas em `specs/001-protheus-2610-lab/research.md` (R-07).
