@@ -82,6 +82,7 @@ services:
         aliases: [dbaccess-2510]
 
   # Semeia, uma vez, o RPO proprio do ambiente de compilacao P2510D (ver entrypoint-lab.sh).
+  # Sentinela .plab-seeded gravada so depois da copia completa (ver stacks/semear-volume.sh).
   rpo-init:
     image: ${PLAB_2510_IMG_APPSERVER:?defina PLAB_2510_IMG_APPSERVER no .env}
     platform: linux/amd64
@@ -90,15 +91,11 @@ services:
     command:
       - |
         set -e
-        if [ ! -f /dst/tttm120.rpo ]; then
-          cp -a /protheus12/apo/. /dst/
-          echo "rpo-init: RPO de compilacao (P2510D) semeado em apo_compila"
-        else
-          echo "rpo-init: RPO de compilacao ja existe, nada a fazer"
-        fi
+        bash /plab/semear-volume.sh /protheus12/apo /dst tttm120.rpo rpo-init
         ls -la /dst
     volumes:
       - rpo-compila:/dst
+      - ../semear-volume.sh:/plab/semear-volume.sh:ro
     logging: *logging
     network_mode: none
 
