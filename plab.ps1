@@ -27,10 +27,16 @@ function Ler-Env {
     if (-not (Test-Path -LiteralPath $cArq)) {
         Sair 3 "arquivo .env ausente. Copie .env.example para .env e preencha as senhas."
     }
+    # Mesmas regras do plab (bash): "export " opcional, aspas simples ou duplas sem expansao e
+    # comentario inline (" #") em valor sem aspas.
     $oEnv = @{}
     foreach ($cLinha in Get-Content -LiteralPath $cArq) {
-        if ($cLinha -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
-            $oEnv[$Matches[1]] = $Matches[2].Trim().Trim('"').Trim("'")
+        if ($cLinha -match '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+            $cChave = $Matches[1]; $cValor = $Matches[2]
+            if ($cValor -match '^"([^"]*)"' -or $cValor -match "^'([^']*)'") { $cValor = $Matches[1] }
+            elseif ($cValor -match '^#') { $cValor = '' }
+            else { $cValor = ($cValor -replace '\s#.*$', '').Trim() }
+            $oEnv[$cChave] = $cValor
         }
     }
     return $oEnv

@@ -10,12 +10,29 @@ RELEASES=(2610 2510)
 
 sair() { local cod=$1; shift; [ $# -gt 0 ] && echo "plab: $*" >&2; exit "$cod"; }
 
+# Le o .env como dados (KEY=VALUE), sem executar o arquivo. So guarda as variaveis PLAB_* que o
+# wrapper usa (portas e listas de releases), sem exportar: o docker compose le o .env por conta
+# propria (--env-file), como no plab.ps1. Senhas, chaves e tokens nem sao lidos.
+# Aceita: comentario de linha, "export ", aspas simples ou duplas (sem expansao) e comentario
+# inline (" #") em valor sem aspas.
 ler_env() {
-  [ -f "$RAIZ/.env" ] || sair 3 "arquivo .env ausente. Copie .env.example para .env e preencha as senhas."
-  set -a
-  # shellcheck disable=SC1091
-  . "$RAIZ/.env"
-  set +a
+  local arq="$RAIZ/.env" linha chave valor
+  [ -f "$arq" ] || sair 3 "arquivo .env ausente. Copie .env.example para .env e preencha as senhas."
+  while IFS= read -r linha || [ -n "$linha" ]; do
+    linha=${linha%$'\r'}
+    [[ $linha =~ ^[[:space:]]*(export[[:space:]]+)?(PLAB_[A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+    chave=${BASH_REMATCH[2]}; valor=${BASH_REMATCH[3]}
+    case "$chave" in *_PASSWORD|*_TOKEN|*_KEY|*_SECRET) continue ;; esac
+    if [[ $valor =~ ^\"([^\"]*)\" ]] || [[ $valor =~ ^\'([^\']*)\' ]]; then
+      valor=${BASH_REMATCH[1]}
+    elif [[ $valor == \#* ]]; then
+      valor=""
+    else
+      valor=${valor%%[[:space:]]#*}
+      valor=${valor%"${valor##*[![:space:]]}"}
+    fi
+    printf -v "$chave" '%s' "$valor"
+  done < "$arq"
 }
 
 testar_docker() { docker info --format '{{.ServerVersion}}' >/dev/null 2>&1 || sair 3 "Docker nao respondeu."; }
@@ -139,7 +156,9 @@ cmd_down() {
   for alvo in $(alvos "$alvo_arg"); do
     local args=(down)
     if [ "$volumes" = "--volumes" ]; then
-      read -r -p "Isto APAGA os dados de plab-$alvo. Digite '$alvo' para confirmar: " conf
+      # Sem terminal (stdin fechado) o read falha: vale como "nao confirmado", sem abortar o set -e.
+      local conf=""
+      read -r -p "Isto APAGA os dados de plab-$alvo. Digite '$alvo' para confirmar: " conf || conf=""
       [ "$conf" = "$alvo" ] || { echo "cancelado para $alvo"; continue; }
       args+=(--volumes)
     fi

@@ -52,7 +52,9 @@ jobs:
         run: bash lab/tests/test_encoding.sh "$PWD"
 
       - name: testes locais (sem container)
-        run: bash lab/tests/test_semear_volume.sh
+        run: |
+          bash lab/tests/test_semear_volume.sh
+          bash lab/tests/test_plab_env.sh
 
       - name: compose config (2610, 2510, lab)
         run: |
