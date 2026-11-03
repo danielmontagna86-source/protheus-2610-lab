@@ -83,6 +83,7 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 | — | `lab ui <rel>` | smoke de interface com Playwright |
 | — | `lab cenarios <rel> [nome]` | cenários de leitura de `cenarios/ui-leitura` |
 | — | `lab tir <rel> <suite.py>` | executa suíte TIR com config temporária |
+| — | `lab procedures <rel> <proc...>` | instala processos de stored procedures pelo Configurador (**grava no banco do lab**) |
 | — | `lab versions` | versões instaladas |
 | — | `lab setup [--ia ...] [--auth conta\|api_key]` | configura CLIs de IA, publica skills e gera AGENTS/CLAUDE/GEMINI.md |
 
@@ -167,13 +168,19 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
    fechado, teste interrompido) prende a licença até o License Server reiniciar; depois de 3 ou 4
    sessões assim o Protheus mostra "Erro de servidor de licença: -20 — Excedeu número de licenças".
    Os testes do lab sempre saem pelo "Finalizar". Se acontecer: `plab restart <rel>`.
-5. **Includes só da 2610.** A imagem AppServer da 2510 não traz os `.ch`; o `includes-init` copia os
+5. **Contas a Pagar (FINA050) na 2610 pede procedure atualizada.** A base da imagem traz o
+   processo de stored procedures 08 na assinatura 012, e a FINA050 do RPO 2610 exige a 013
+   (janela "Incompatibilidade"). O pacote certo já vem dentro do RPO: depois de `plab up 2610`,
+   rode `docker exec plab-lab-lab-1 lab procedures 2610 08` e em seguida `plab restart 2610`.
+   O comando grava no banco do lab; `plab down 2610 --volumes` volta ao estado da imagem. Detalhes
+   em `skills/testes-protheus/references/procedures.md`.
+6. **Includes só da 2610.** A imagem AppServer da 2510 não traz os `.ch`; o `includes-init` copia os
    da imagem 2610 e eles são usados também para compilar na 2510 (o LABHELLO compila nas duas).
    Quem usa só a 2510 ainda precisa baixar a imagem AppServer 2610.
-6. **Linux nativo não testado.** A plataforma verificada é Windows 11 + Docker Desktop. O usuário
+7. **Linux nativo não testado.** A plataforma verificada é Windows 11 + Docker Desktop. O usuário
    `lab` tem UID 1000; no Docker Engine Linux, se o seu UID for outro, `workspace/` e `evidencias/`
    precisam permitir escrita para o UID 1000.
-7. **Reprodutibilidade da imagem `lab`.** Node, Chrome for Testing e chromedriver são conferidos por
+8. **Reprodutibilidade da imagem `lab`.** Node, Chrome for Testing e chromedriver são conferidos por
    SHA-256 e o Ubuntu base é fixado por digest. Pacotes apt, dependências transitivas de pip
    (`tir_framework`, `playwright`) e de npm (`@totvs/tds-ls`) não têm lock: builds em datas
    diferentes podem trazer versões transitivas diferentes.

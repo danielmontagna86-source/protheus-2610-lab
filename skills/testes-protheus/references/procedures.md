@@ -64,6 +64,10 @@ Portal de Downloads TOTVS com login de cliente. Isso é decisão do dono do ambi
 8. Confira `TOP_SP`: as procedures do processo precisam estar na assinatura da rotina.
 9. Reabra a rotina e confira o browse.
 
+Nesta versão do gestor, a janela não fecha por `Esc`, pelo botão "Confirmar" nem pelo X da aba.
+Sem fechá-la, o "Log Off" não age e a sessão segura uma licença. Em ambiente de testes com poucas
+licenças, reinicie o AppServer depois da instalação (no Protheus 2610 Lab: `plab restart <rel>`).
+
 Se continuar *Incompatível* depois de instalar, o RPO não traz a assinatura certa. A opção
 **Forçar utilização de pacotes .ZSPS contidos no RPO**, nas configurações do gestor, só resolve se
 o pacote do RPO tiver a mesma assinatura da rotina. Do contrário, é preciso o patch da rotina ou do

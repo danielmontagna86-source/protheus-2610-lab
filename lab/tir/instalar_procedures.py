@@ -87,7 +87,8 @@ with pw.navegador() as pg:
         pg.mouse.click(22, 158)  # botao lateral 'Instalar'
         if not pw.existe_caption(pg, "wa-text-view", "Gestão de Procedures - Instalação", 20_000):
             raise AssertionError(f"confirmacao nao apareceu: {texto_contem(pg, 'selecion') or 'sem mensagem'}")
-        pw.por_caption(pg, "wa-button", "Sim").click()
+        # Clique com pos-condicao: um clique antes da hidratacao do dialogo nao tem efeito.
+        pw.clicar_ate_sumir(pg, "Sim", ("wa-text-view", "Gestão de Procedures - Instalação"))
         print(f"[proc] instalando processo(s) {' '.join(processos)} (modo exclusivo)")
         if not pw.existe_caption(pg, "wa-text-view", "Resumo da instalação", 600_000):
             raise AssertionError("resumo da instalacao nao apareceu em 10 min")
@@ -101,10 +102,16 @@ with pw.navegador() as pg:
         pw.clicar_ate_sumir(pg, "Fechar", ("wa-text-view", "Resumo da instalação"))
         pg.wait_for_timeout(5_000)
         ev.captura("depois")
-        print(f"[proc] OK: processo(s) {' '.join(processos)} instalado(s) na empresa {empresa}")
+        print(f"[proc] OK: processo(s) {' '.join(processos)} na empresa {empresa}: "
+              f"{sucessos} instalado(s), {ignoradas} ja atualizado(s)")
         codigo = 0
     except Exception as erro:  # noqa: BLE001
         ev.captura("falha")
         print(f"[proc] FALHOU: {type(erro).__name__}: {erro}")
-    print(f"[proc] saida do sistema: {'Finalizar ok' if pw.sair_do_sistema(pg) else 'NAO confirmada'}")
+    # O gestor (CFGX051M) nao fecha por Esc, 'Confirmar' nem pelo X da aba (testado em 03/11/2026);
+    # sem fechar, o 'Log Off' nao age e a licenca fica presa ate reiniciar o AppServer.
+    if pw.sair_do_sistema(pg, timeout_ms=10_000):
+        print("[proc] saida do sistema: Finalizar ok")
+    else:
+        print(f"[proc] saida do sistema NAO confirmada: libere a licenca no host com 'plab restart {rel}'")
     sys.exit(codigo)

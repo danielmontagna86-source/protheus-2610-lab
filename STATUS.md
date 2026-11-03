@@ -59,6 +59,12 @@ Enquanto esse gate não passar, o projeto **não está pronto para publicação*
   licença e a 3ª ou 4ª sessão seguida recebe "Erro de servidor de licença: -20 — Excedeu número de
   licenças". Correção: `plab_pw.sair_do_sistema` ao fim de todo teste de interface (sucesso ou
   falha). Verificado: 5 sessões seguidas na 2610 sem erro de licença.
+- **Procedures na 2610**: FINA050 exigia o processo 08 na assinatura 013 e a base trazia 012.
+  Com autorização do dono (02/11/2026), o processo 08 da empresa 99 foi instalado pelo Gestor de
+  Procedures (CFGX051M) a partir do pacote .ZSPS do RPO (19/05/2026): resumo 1 sucesso, 0 falhas;
+  `TOP_SP` com as 11 procedures em 013; Contas a Pagar abriu com a grade carregada. Automatizado em
+  `lab procedures 2610 08` (reexecução: "Ignorada", código 0). O gestor não fecha por Esc,
+  Confirmar nem X da aba; a licença é liberada com `plab restart 2610`.
 - **Senha em captura de tela**: numa falha de login a captura mostrou a senha digitada no campo de
   usuário (o formulário PO UI redesenhou entre os preenchimentos). Correção: o login confere os dois
   campos antes de clicar e toda captura limpa o formulário de login antes. Capturas de falha da
