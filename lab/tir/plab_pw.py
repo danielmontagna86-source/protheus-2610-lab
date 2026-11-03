@@ -385,15 +385,20 @@ def sair_do_sistema(pagina, timeout_ms=20_000):
     4a sessao seguida). Os cliques sao feitos no proprio componente porque a rotina aberta cobre o
     botao. Pos-condicao: a tela 'Parametros Iniciais' volta. Devolve True se saiu."""
     # Laco com pos-condicao: um clique antes da hidratacao do dialogo nao tem efeito.
+    # 'Finalizar' so depois de clicar no 'Log Off': formularios de rotina tambem tem botao
+    # 'Finalizar' e ele grava (visto em 03/11/2026 na Politica de senhas do SIGACFG).
     parametros = pagina.locator(".startParameters wa-button", has_text="OK")
+    pediu_logoff = False
     fim = time.time() + timeout_ms / 1000.0 * 3
     while time.time() < fim:
         try:
             if parametros.is_visible():
                 return True
             fechar_novidades(pagina, 1_000)  # dialogo modal na frente do Log Off
-            alvo = (pagina.evaluate_handle(_JS_CONTEM, ["wa-button", "Finalizar"]).as_element()
-                    or pagina.evaluate_handle(_JS_CONTEM, ["wa-button", "Log Off"]).as_element())
+            alvo = pediu_logoff and pagina.evaluate_handle(_JS_CONTEM, ["wa-button", "Finalizar"]).as_element()
+            if not alvo:
+                alvo = pagina.evaluate_handle(_JS_CONTEM, ["wa-button", "Log Off"]).as_element()
+                pediu_logoff = pediu_logoff or bool(alvo)
             if not alvo:
                 # SmartClient HTML 10 (2510): com rotina aberta o topo mostra 'Sair' desabilitado e
                 # nao existe 'Log Off'. Fecha a rotina pelo 'X' do cabecalho dela (canto superior

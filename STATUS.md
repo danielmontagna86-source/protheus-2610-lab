@@ -67,6 +67,16 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   `TOP_SP` com as 11 procedures em 013; Contas a Pagar abriu com a grade carregada. Automatizado em
   `lab procedures 2610 08` (reexecução: "Ignorada", código 0). O gestor não fecha por Esc,
   Confirmar nem X da aba; a licença é liberada com `plab restart 2610`.
+- **Senha sem vencimento (03/11/2026, pedido do dono)**: testado na 2510 com a data da última troca
+  voltada para 12/10/2025 e `lab ui 2510` depois de reiniciar o AppServer. Controle (política 90 dias):
+  "Alterar senha". Continuou pedindo a troca com: política `usr_qtdexppsw=0`; política e grupo
+  DEFAULT `*` em 0; prazo do próprio Admin em 999 dias. Ou seja, zerar o prazo no banco não tira o
+  vencimento nesta base, e o TDN ("Configure a safe password rule") não documenta valor "nunca vence".
+  Base devolvida ao estado anterior e `lab ui 2510` OK. A renovação da data no `plab up` continua.
+- **`sair_do_sistema` gravava formulário aberto**: o "Finalizar" de uma rotina (Política de senhas do
+  SIGACFG) foi clicado como se fosse o do Log Off e gravou tamanho mínimo 8 e máscara `#Aa9X` na
+  política da 2510 (revertido para 1 e vazio). Correção: "Finalizar" só depois de clicar em "Log Off".
+  Verificado: cenários 2610 5/5 e 2510 5/5, `plab smoke` PRONTO nas duas.
 - **Senha em captura de tela**: numa falha de login a captura mostrou a senha digitada no campo de
   usuário (o formulário PO UI redesenhou entre os preenchimentos). Correção: o login confere os dois
   campos antes de clicar e toda captura limpa o formulário de login antes. Capturas de falha da
@@ -110,8 +120,10 @@ Nenhum.
 ## AGUARDANDO_USUARIO
 
 - Publicação pública do repositório: exige nova autorização.
-- Confirmar a renovação automática da data de troca de senha do Admin na 2510 (ou desligar com
-  `PLAB_RENOVAR_SENHA_ADMIN=` vazio e trocar a senha manualmente a cada vencimento).
+- Renovação automática da data de troca de senha do Admin na 2510: o dono pediu para retirar e deixar
+  a senha sem vencimento; o teste mostrou que zerar o prazo (política, grupo ou usuário) não tira o
+  vencimento. Decidir: manter a renovação (atual) ou desligar (`PLAB_RENOVAR_SENHA_ADMIN=` vazio) e
+  trocar a senha pela tela a cada 90 dias e em toda base recriada.
 
 ## Riscos
 
