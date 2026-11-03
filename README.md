@@ -160,8 +160,11 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
      Até o TIR corrigir, o smoke usa Playwright (`cenarios/ui-smoke`). A suíte TIR continua em
      `cenarios/tir-smoke` e roda com `PLAB_SMOKE_TIR=1`.
 2. **`advpls cli` trava com `$` na senha** (TDS-LS 2.2.7). O `lab compile` falha cedo, com código 22.
-   Para compilar na 2510, troque a senha do Admin **do lab** por uma sem `$`, pelo WebApp, e
-   atualize o `.env`.
+   Qualquer `$` trava, mesmo escapado (`$$`, `\$`); `${VAR}` derruba o advpls (testado em
+   03/11/2026). A senha padrão do Admin da 2510 tem `$`: numa base nova, `plab smoke 2510` passa
+   pela interface e para na compilação com código 22. Para compilar, troque a senha do Admin **do
+   lab** por uma sem `$`, pelo WebApp, e atualize o `.env`. `plab down 2510 --volumes` recria a
+   base e volta à senha padrão.
 3. **Diálogo "Moedas".** No primeiro acesso do dia a cadastros, "Confirmar" grava cotações. Os
    testes de leitura usam "Cancelar".
 4. **Licenças de desenvolvimento.** Uma sessão encerrada sem "Log Off → Finalizar" (navegador
