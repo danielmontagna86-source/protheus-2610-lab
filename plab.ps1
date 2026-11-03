@@ -135,7 +135,9 @@ function Renovar-Senha-Admin {
     $aBase = @('compose', '--env-file', (Join-Path $cRaiz '.env'), '-f', $cArq)
     $OutputEncoding = New-Object System.Text.UTF8Encoding $false
     # Sem aspas duplas no comando: o PowerShell 5.1 nao as escapa ao chamar programas nativos.
-    $cSaida = Get-Content -Raw $cSql | & docker @aBase exec -T db sh -c 'PGPASSWORD=$POSTGRES_PASSWORD exec psql -h 127.0.0.1 -U postgres -d protheus -q -A -t -v ON_ERROR_STOP=1' 2>&1
+    # O PowerShell 5.1 poe um BOM no texto enviado a programas nativos (verificado em 03/11/2026,
+    # psql: 'syntax error at or near "<BOM>"'); o sed remove o BOM dentro do container.
+    $cSaida = Get-Content -Raw $cSql | & docker @aBase exec -T db sh -c 'sed 1s/^\\xEF\\xBB\\xBF// | PGPASSWORD=$POSTGRES_PASSWORD psql -h 127.0.0.1 -U postgres -d protheus -q -A -t -v ON_ERROR_STOP=1' 2>&1
     if ($LASTEXITCODE -ne 0) { Write-Warning "renovacao da senha do Admin falhou em $(Projeto $cAlvo): $cSaida" }
     else { Write-Host "senha do Admin renovada (sem alteracao) em $(Projeto $cAlvo)" }
 }

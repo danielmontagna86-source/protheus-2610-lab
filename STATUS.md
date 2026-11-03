@@ -100,6 +100,8 @@ opencode/Gemini). Publicação pública: só com nova autorização do dono.
   `PLAB_RENOVAR_SENHA_ADMIN` (padrão 2510). A senha do banco é lida dentro do container.
 - **Senha do Admin da 2510 do lab** trocada pelo fluxo "Alterar senha" do Protheus por uma sem `$`
   (autorizado pelo dono), por causa do travamento do `advpls`.
+  Refeita em 03/11/2026 (autorizado pelo dono) depois de recriar a base: senha de 16 caracteres
+  gerada no container e gravada só no `.env`; `plab smoke 2510` → PRONTO nos 5 passos.
 
 ## Bloqueios
 
