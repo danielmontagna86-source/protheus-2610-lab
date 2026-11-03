@@ -13,8 +13,16 @@ resultado() { # item ocorrencias detalhe
 # Item que nao pode ser conferido agora: nunca vira OK.
 nao_verificado() { nao_verificados=$((nao_verificados + 1)); printf '%-6s %-52s %s\n' 'N/VER' "$1" "$2"; }
 
+# Git Bash (Windows): sem desligar a conversao automatica de caminhos do MSYS, o "-v origem:destino"
+# e os caminhos /opt/... do "docker exec" chegam estragados ao Docker, e o item sairia como OK sem ter
+# sido verificado (visto em 03/11/2026). O volume do gitleaks usa o caminho "C:/...".
+origem=$RAIZ
+if command -v cygpath >/dev/null 2>&1; then origem=$(cygpath -m "$RAIZ"); export MSYS_NO_PATHCONV=1; fi
+# Os itens de historico dependem do git: se ele nao abrir o repositorio, o scan para (nunca OK falso).
+git -C "$origem" rev-parse --git-dir >/dev/null 2>&1 || { echo "plab scan: git nao abriu o repositorio em $origem" >&2; exit 3; }
+
 # 1. gitleaks no historico git
-saida=$(docker run --rm -v "$RAIZ:/repo:ro" "$GITLEAKS" git /repo --redact --no-banner --exit-code 3 -v 2>&1); rc=$?
+saida=$(docker run --rm -v "$origem:/repo:ro" "$GITLEAKS" git /repo --redact --no-banner --exit-code 3 -v 2>&1); rc=$?
 if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then resultado 'gitleaks (historico git)' 1 "falha ao executar (rc=$rc)"
 else resultado 'gitleaks (historico git)' "$(grep -c '^Finding:' <<<"$saida" || true)"; fi
 
@@ -28,8 +36,8 @@ if [ -f "$RAIZ/.env" ]; then
   sed -nE 's/^\s*[A-Z0-9_]*(_PASSWORD|_TOKEN|_KEY|_SECRET)\s*=\s*(.+)$/\2/p' "$RAIZ/.env" \
     | sed -E "s/^'(.*)'$/\1/; s/^\"(.*)\"$/\1/; s/\\\$\\\$/\$/g" | awk 'length >= 6' > "$valores"
 fi
-contar() { [ -s "$valores" ] && grep -cF -f "$valores" || echo 0; }
-resultado 'senhas do .env no historico git' "$(git -C "$RAIZ" log --all -p --no-color 2>/dev/null | contar)"
+contar() { if [ -s "$valores" ]; then grep -cF -f "$valores" || true; else cat >/dev/null; echo 0; fi; }
+resultado 'senhas do .env no historico git' "$(git -C "$origem" log --all -p --no-color 2>/dev/null | contar)"
 if docker image inspect plab-lab:local >/dev/null 2>&1; then
   resultado 'senhas do .env na imagem plab-lab (history/inspect)' \
     "$( { docker history --no-trunc plab-lab:local; docker image inspect plab-lab:local; } 2>/dev/null | contar)"
@@ -39,15 +47,21 @@ if [ -n "$id" ]; then
   resultado 'senhas do .env no inspect do container lab' "$(docker inspect "$id" | contar)"
   # Chaves e tokens que so existem no container: conferidos la dentro, sem sair de la.
   interno=(docker exec -i "$id" bash /opt/plab/lab/bin/lib/scan-interno.sh)
-  while read -r rotulo n; do
-    [ "$rotulo" = valores ] && { echo "       (container lab: $n valores sensiveis conhecidos)"; continue; }
-    resultado "segredos do container lab em $rotulo" "${n:-0}"
-  done < <("${interno[@]}" arquivos 2>/dev/null)
-  logs=0
+  # So conta o que o verificador interno respondeu; sem resposta = NAO verificado, nunca OK.
+  linhas=$("${interno[@]}" arquivos 2>/dev/null)
+  if grep -q '^valores ' <<<"$linhas"; then
+    while read -r rotulo n; do
+      [ "$rotulo" = valores ] && { echo "       (container lab: $n valores sensiveis conhecidos)"; continue; }
+      resultado "segredos do container lab em $rotulo" "${n:-0}"
+    done <<<"$linhas"
+  else nao_verificado 'segredos do container lab (chaves, tokens, workspace)' 'verificador interno nao respondeu'; fi
+  logs=0; sem_resposta=0
   for c in $(docker ps -aq --filter 'label=com.docker.compose.project' | xargs -r docker inspect --format '{{.Id}} {{index .Config.Labels "com.docker.compose.project"}}' | awk '$2 ~ /^plab-/ {print $1}'); do
-    n=$(docker logs "$c" 2>&1 | "${interno[@]}" stdin | awk '{print $2}'); logs=$((logs + ${n:-0}))
+    r=$(docker logs "$c" 2>&1 | "${interno[@]}" stdin 2>/dev/null)
+    case "$r" in stdin\ *) logs=$((logs + $(awk '{print $2}' <<<"$r"))) ;; *) sem_resposta=$((sem_resposta + 1)) ;; esac
   done
-  resultado 'segredos (senhas, chaves, tokens) nos docker logs plab-*' "$logs"
+  if [ "$sem_resposta" -eq 0 ]; then resultado 'segredos (senhas, chaves, tokens) nos docker logs plab-*' "$logs"
+  else nao_verificado 'segredos nos docker logs plab-*' "$sem_resposta container(s) sem resposta do verificador"; fi
 else
   nao_verificado 'segredos do container lab (chaves, tokens, workspace)' 'container lab parado: plab up lab'
   nao_verificado 'segredos nos docker logs plab-*' 'container lab parado'
@@ -56,11 +70,11 @@ resultado 'senhas do .env nas evidencias (log/json/txt)' \
   "$(find "$RAIZ/evidencias" -type f \( -name '*.log' -o -name '*.json' -o -name '*.out' -o -name '*.txt' \) -exec cat {} + 2>/dev/null | contar)"
 
 # 4. Nada sensivel versionado por engano
-n=$(git -C "$RAIZ" ls-files | grep -cE '(^|/)\.env$|secrets?\.env$|config\.json$|\.rpo$|\.ch$|appserver\.ini$|^evidencias/[^.]' || true)
+n=$(git -C "$origem" ls-files | grep -cE '(^|/)\.env$|secrets?\.env$|config\.json$|\.rpo$|\.ch$|appserver\.ini$|^evidencias/[^.]' || true)
 resultado 'arquivos proibidos versionados' "$n"
 
 # 5. Evidencias (capturas/baseline locais) nunca no historico publicavel
-n=$(git -C "$RAIZ" log --all --name-only --pretty=format: -- evidencias 2>/dev/null | grep -v -e '^$' -e '\.gitkeep$' | sort -u | wc -l)
+n=$(git -C "$origem" log --all --name-only --pretty=format: -- evidencias 2>/dev/null | grep -v -e '^$' -e '\.gitkeep$' | sort -u | wc -l)
 resultado 'evidencias no historico git (reescrever antes de publicar)' "$n"
 
 [ "$falhas" -gt 0 ] && { echo "plab scan: $falhas item(ns) com ocorrencias"; exit 1; }
