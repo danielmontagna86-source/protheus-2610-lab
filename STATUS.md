@@ -45,6 +45,7 @@ Enquanto esse gate não passar, o projeto **não está pronto para publicação*
 | Medição de recursos | duas releases + lab ativos: RAM ~4,7 GB; imagens ~28 GB; volumes ~11 GB |
 | T045 pesquisa opencode/Gemini | `research.md` R-07.1: versões `latest` no npm (opencode-ai 1.19.5, @google/gemini-cli 0.66.0) e docs oficiais lidas nos repositórios `sst/opencode` @ `1bf08ae46a91` e `google-gemini/gemini-cli` @ `0ac57c029b84` (sites bloqueados na sessão de nuvem). Gemini não documenta login de conta sem navegador → só `api_key` |
 | T046 providers opencode e Gemini | `lab/setup/providers/opencode.sh` (conta: `opencode auth login`; chave: `OPENCODE_API_KEY` ou `ANTHROPIC_API_KEY`) e `gemini.sh` (só `api_key`: `GEMINI_API_KEY`); `lab-setup.sh` com `IAS_SUPORTADAS="claude codex opencode gemini"`, versão no `state.json` e `<ia>_modos` opcional (fluxo de Claude/Codex sem mudança de comportamento). `shellcheck` v0.11.0 (binário oficial, sessão sem Docker): 0 achados em `lab/setup/providers/*.sh`, `lab/tests/*.sh` e `lab-setup.sh`. Teste local com **stubs** (npm, CLIs, doctor e smoke falsos; sem rede de IA): chave digitada por pseudo-TTY não aparece na saída, `secrets.env` 600 sem duplicar, wrapper do opencode exporta só a variável escolhida e nenhuma no modo conta, wrapper do Gemini só `GEMINI_API_KEY`, `settings.json` do Gemini preservado; 2 execuções seguidas com as 4 IAs → estado, instruções, skills e wrappers idênticos |
+| T039–T044 cenários de leitura (US5) | 03/11/2026, imagem reconstruída: `lab cenarios 2610` 5/5 e `lab cenarios 2510` 5/5 (produtos, fornecedores, clientes, contas a receber, contas a pagar), todas as 10 sessões saíram por Finalizar, sem reiniciar o License Server |
 | Revisão independente (PR #2) | achados B2, A1, A4, A5, M1, M2, M3 tratados; demais em andamento (abaixo) |
 
 ## Achados verificados
@@ -73,9 +74,8 @@ Enquanto esse gate não passar, o projeto **não está pronto para publicação*
 
 ## Em andamento
 
-- US5: cenários de leitura (`cenarios/ui-leitura`): saída pelo botão "Sair" para devolver a
-  licença; rodar nas duas releases e manter em `releases` só o que passar.
-- Revisão independente: M4–M10 e L1–L12.
+- Revisão independente: L1–L12 (baixos).
+- T047 (opencode/Gemini real), T051–T053 (gate final).
 
 ## Pendências
 

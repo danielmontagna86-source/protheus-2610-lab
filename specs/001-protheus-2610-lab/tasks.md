@@ -126,12 +126,12 @@ commit local em português (Princípio VI).
 
 **Independent Test**: cada suíte passa em ≥ 1 release com evidência
 
-- [ ] T039 [US5] Confirmar no menu de cada release quais rotinas existem e seus caminhos/títulos (MATA010, MATA020, MATA030/CRMA980, FINA040, FINA050); registrar em `cenarios/README.md`
-- [ ] T040 [P] [US5] Suíte `cenarios/tir-mata010/` (abrir produtos, conferir título, sair) + README
-- [ ] T041 [P] [US5] Suíte `cenarios/tir-mata020/` (fornecedores) + README
-- [ ] T042 [P] [US5] Suíte `cenarios/tir-clientes/` (MATA030 ou CRMA980 conforme release) + README
-- [ ] T043 [P] [US5] Suítes opcionais `cenarios/tir-fina040/` e `cenarios/tir-fina050/` + README
-- [ ] T044 [US5] Rodar todas as suítes nas duas releases; marcar `releases_confirmadas` em cada README; evidências salvas
+- [x] T039 [US5] Confirmar no menu de cada release quais rotinas existem e seus caminhos/títulos (MATA010, MATA020, MATA030/CRMA980, FINA040, FINA050) — `lab/tir/explorar_menu.py`; caminhos em `cenarios/ui-leitura/cenarios.json`
+- [x] T040 [P] [US5] Cenário produtos (MATA010) — Playwright em `cenarios/ui-leitura` (desvio: TIR bloqueado, totvs/tir#2169)
+- [x] T041 [P] [US5] Cenário fornecedores (MATA020) — Playwright em `cenarios/ui-leitura`
+- [x] T042 [P] [US5] Cenário clientes (MATA030/CRMA980) — Playwright em `cenarios/ui-leitura`
+- [x] T043 [P] [US5] Cenários contas-receber (FINA040) e contas-pagar (FINA050) — Playwright; FINA050 na 2610 exige `lab procedures 2610 08`
+- [x] T044 [US5] Rodar todas nas duas releases — 03/11/2026: 2610 5/5 e 2510 5/5, 10 saídas por Finalizar; `cenarios/README.md` com releases confirmadas
 
 ---
 
