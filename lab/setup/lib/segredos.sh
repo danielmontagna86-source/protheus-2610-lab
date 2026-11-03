@@ -4,8 +4,10 @@
 LAB_SEGREDOS="${HOME}/.config/lab/secrets.env"
 
 segredos_preparar() {
-  mkdir -p "$(dirname "$LAB_SEGREDOS")"
-  [ -f "$LAB_SEGREDOS" ] || : > "$LAB_SEGREDOS"
+  local dir; dir=$(dirname "$LAB_SEGREDOS")
+  # 700 aqui mesmo: nao depende de estado_iniciar ter rodado antes.
+  mkdir -p "$dir" && chmod 700 "$dir"
+  [ -f "$LAB_SEGREDOS" ] || ( umask 077; : > "$LAB_SEGREDOS" )
   chmod 600 "$LAB_SEGREDOS"
 }
 
@@ -20,10 +22,18 @@ segredo_ler() {
     echo
     [ -n "$valor" ] || { echo "nada informado; cancelado."; return 1; }
   done
-  local tmp; tmp=$(mktemp); chmod 600 "$tmp"
-  grep -v "^${var}=" "$LAB_SEGREDOS" > "$tmp" || true
-  printf '%s=%q\n' "$var" "$valor" >> "$tmp"
-  mv "$tmp" "$LAB_SEGREDOS"; chmod 600 "$LAB_SEGREDOS"
+  # Temporario no mesmo diretorio (volume lab-home): o mv vira um rename atomico, e uma falha nao
+  # deixa copia dos segredos na camada do container (/tmp).
+  local tmp
+  tmp=$(mktemp "$(dirname "$LAB_SEGREDOS")/.secrets.XXXXXX") || { unset valor; return 1; }
+  chmod 600 "$tmp"
+  if { grep -v "^${var}=" "$LAB_SEGREDOS" || true; } > "$tmp" \
+     && printf '%s=%q\n' "$var" "$valor" >> "$tmp" \
+     && mv -f "$tmp" "$LAB_SEGREDOS"; then
+    chmod 600 "$LAB_SEGREDOS"
+  else
+    rm -f "$tmp"; unset valor; return 1
+  fi
   unset valor
 }
 

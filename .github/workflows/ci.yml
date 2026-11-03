@@ -58,6 +58,7 @@ jobs:
           bash lab/tests/test_smoke_limpeza.sh
           bash lab/tests/test_compile_entradas.sh
           bash lab/tests/test_setup_estados.sh
+          bash lab/tests/test_segredos_tmp.sh
 
       - name: compose config (2610, 2510, lab)
         run: |

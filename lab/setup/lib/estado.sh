@@ -18,8 +18,10 @@ estado_sanear() {
 # estado_jq <filtro jq> [argumentos do jq] - aplica o filtro e regrava o state.json.
 estado_jq() {
   local filtro=$1 tmp; shift
-  tmp=$(mktemp)
-  jq "$@" "$filtro" "$LAB_ESTADO" > "$tmp" && mv "$tmp" "$LAB_ESTADO"
+  # Temporario no mesmo diretorio do state.json: mv atomico e nada sobra em /tmp se falhar.
+  tmp=$(mktemp "$LAB_CFG/.state.XXXXXX") || return 1
+  if jq "$@" "$filtro" "$LAB_ESTADO" > "$tmp"; then mv -f "$tmp" "$LAB_ESTADO"
+  else rm -f "$tmp"; return 1; fi
 }
 
 # estado_set <caminho jq> <valor string>
