@@ -27,9 +27,9 @@ preservado para manter o login das CLIs.
 
 ## Baseline (T052)
 
-As 11 stacks que já existiam na máquina continuam saudáveis. O contêiner `protheus_ia_lab-api-1`
-foi recriado às 04:00 de 03/11 (reinícios 0, sem OOM) por um `compose up` externo ao lab. Nenhum
-comando do lab age sobre esse projeto.
+As outras stacks que já existiam na máquina continuam saudáveis. A única mudança observada foi um
+contêiner de outro projeto recriado por um `compose up` externo ao lab (reinícios 0, sem OOM).
+Nenhum comando do lab age sobre outros projetos.
 
 ## Achados que viraram correção
 

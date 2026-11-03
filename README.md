@@ -211,6 +211,8 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 ## Licenças e responsabilidades
 
 - Código do lab: MIT ([LICENSE](LICENSE)), restrito ao conteúdo deste repositório.
+- Arquivos de terceiros incluídos (GitHub Spec Kit) e itens só referenciados:
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - Protheus, AppServer, DBAccess, License Server, RPO, includes, TIR e advpls pertencem à TOTVS.
   Licenças e direito de uso são de quem instala. O License Server de desenvolvimento das imagens
   não comprova direito de uso.

@@ -21,7 +21,7 @@ Release de pé (`plab up 2610`/`2510`) e container lab de pé (`plab up lab`).
 ## Como rodar
 
 ```bash
-plab smoke 2610            # passo 3 do smoke usa este cenário
+plab smoke 2610            # passo 2 do smoke usa este cenário
 # ou, dentro do container lab:
 lab ui 2610
 ```
@@ -34,12 +34,12 @@ lab ui 2610
 
 ## Evidência esperada
 
-`menu.png`, `rotina.png` (ou `falha.png`) e a saída `[ui] OK: aba 'Produtos' aberta com titulo
+`01-menu.png`, `02-rotina.png` (ou `falha.png`) e a saída `[ui] OK: aba 'Produtos' aberta com titulo
 'Atualizacao de Produtos'`.
 
 ## Releases confirmadas
 
 - 2610: confirmada em 02/11/2026 (capturas em `evidencias/diag/pw-2610-p8`)
-- 2510: pendente
+- 2510: confirmada em 03/11/2026 (`plab smoke 2510` PRONTO, registrado no `STATUS.md`)
 
 author: daniel.montagna

@@ -35,5 +35,5 @@ plab smoke 2610   # ou 2510; dentro do container: lab compile 2610 cenarios/hell
 
 ## Releases confirmadas
 
-- 2610: pendente
-- 2510: pendente
+- 2610: `SUCCESS=1` (registrado no `STATUS.md`, T023–T025)
+- 2510: `SUCCESS=1` (registrado no `STATUS.md`, T023–T025)
