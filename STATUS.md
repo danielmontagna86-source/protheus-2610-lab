@@ -55,9 +55,15 @@ Enquanto esse gate não passar, o projeto **não está pronto para publicação*
   porta `SD`. Mitigação: RPO próprio para `P2510D`, interface antes da compilação, reinício no passo 5.
 - **advpls**: ignora SIGPIPE; includes locais graváveis com nomes em maiúsculas; `$` na senha trava
   (código 22); caminho do RPO em minúsculas no Linux (`rpo-init`).
-- **Licenças de desenvolvimento**: sessões encerradas sem "Sair" não devolvem a licença
-  (`FAILED TO NOTIFY THREAD RELEASE` no License Server) e a quarta sessão seguida recebe
-  "Erro de servidor de licença: -20 — Excedeu número de licenças".
+- **Licenças de desenvolvimento**: sessões encerradas sem "Log Off → Finalizar" não devolvem a
+  licença e a 3ª ou 4ª sessão seguida recebe "Erro de servidor de licença: -20 — Excedeu número de
+  licenças". Correção: `plab_pw.sair_do_sistema` ao fim de todo teste de interface (sucesso ou
+  falha). Verificado: 5 sessões seguidas na 2610 sem erro de licença.
+- **Senha em captura de tela**: numa falha de login a captura mostrou a senha digitada no campo de
+  usuário (o formulário PO UI redesenhou entre os preenchimentos). Correção: o login confere os dois
+  campos antes de clicar e toda captura limpa o formulário de login antes. Capturas de falha da
+  etapa de login foram apagadas das evidências locais. Risco restante: capturas do próprio TIR
+  (`lab tir`) não passam por essa limpeza, e o `plab scan` não lê imagens.
 
 ## Em andamento
 

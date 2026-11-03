@@ -1,0 +1,10 @@
+{
+  "_sobre": "Cenarios de leitura (Playwright, somente leitura) rodados por 'lab cenarios <release>'. 'releases' lista so as releases em que o cenario PASSOU com evidencia (02/11/2026). 'titulo' vazio = conferir a grade de dados visivel. contas-pagar na 2610 exige o processo de procedures 08 instalado ('lab procedures 2610 08'). author: daniel.montagna",
+  "cenarios": [
+    {"nome": "produtos", "rotina": "MATA010", "modulo": 5, "menu": ["Atualizações", "Cadastros", "Produtos"], "aba": "Produtos", "titulo": "Atualizacao de Produtos", "releases": ["2610", "2510"]},
+    {"nome": "fornecedores", "rotina": "MATA020", "modulo": 2, "menu": ["Atualizações", "Cadastros", "Fornecedores"], "aba": "Fornecedores", "titulo": "", "releases": ["2610", "2510"]},
+    {"nome": "clientes", "rotina": "MATA030 / CRMA980", "modulo": 5, "menu": ["Atualizações", "Cadastros", "Clientes"], "aba": "Clientes", "titulo": "", "releases": ["2610"]},
+    {"nome": "contas-receber", "rotina": "FINA040", "modulo": 6, "menu": ["Atualizações", "Contas a Receber", "Contas a Receber"], "aba": "Contas a Receber", "titulo": "", "aviso": "MV_1DUP", "releases": ["2610", "2510"]},
+    {"nome": "contas-pagar", "rotina": "FINA050", "modulo": 6, "menu": ["Atualizações", "Contas a Pagar", "Contas a Pagar"], "aba": "Contas a Pagar", "titulo": "", "aviso": "MV_1DUP", "releases": ["2610", "2510"]}
+  ]
+}

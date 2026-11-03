@@ -20,6 +20,7 @@ lab - Protheus 2610 Lab (container de ferramentas)
   lab cenarios <rel> [nome]     cenarios de leitura (cenarios/ui-leitura/cenarios.json)
   lab smoke <2610|2510>         doctor -> compile LABHELLO -> interface leitura -> PRONTO
   lab setup [opcoes]            assistente de IA (Claude Code, Codex, ...)
+  lab procedures <rel> <proc...>  instala processos de stored procedures (GRAVA no banco do lab)
 EOF
 }
 
@@ -33,6 +34,9 @@ case "$cmd" in
   cenarios) exec "$LAB_LIB/cenarios.sh" "$@" ;;
   smoke)    exec "$LAB_LIB/smoke.sh" "$@" ;;
   setup)    exec "$PLAB_HOME/lab/setup/lab-setup.sh" "$@" ;;
+  procedures) validar_release "${1:-}" || exit 2
+            PYTHONPATH="$PLAB_HOME/lab/tir${PYTHONPATH:+:$PYTHONPATH}" \
+              exec timeout "${PLAB_PROC_LIMITE:-1200}" python -u "$PLAB_HOME/lab/tir/instalar_procedures.py" "$@" ;;
   help|-h|--help) uso ;;
   *) uso; exit 2 ;;
 esac

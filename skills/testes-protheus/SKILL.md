@@ -6,7 +6,7 @@ description: Use quando planejar, implementar, executar ou revisar testes de Pro
 # Testes de Protheus com evidência verificável
 
 author: daniel.montagna
-Versão: 1.3.0 | Pesquisa: 02/11/2026
+Versão: 1.4.0 | Pesquisa: 02/11/2026
 
 Produza conclusão por cenário sustentada por tela, processo e efeito de negócio. Informe aprovado, reprovado, bloqueado ou não executado; não prometa certeza absoluta. Geração de massa, compilação, teste simulado, upload e revisão documental comprovam coisas diferentes.
 
@@ -30,6 +30,7 @@ Antes de uma mutação, verifique execuções em andamento e risco de competir c
 | Carga, Oracle, AppServer, baseline e regressão | [Performance](references/performance.md) |
 | Prints, relatório Word, versão e pacote final | [Evidências](references/evidencias.md) |
 | APIs/fontes e limites de validação desta skill | [Fontes](references/fontes.md) |
+| Janela "Incompatibilidade" / stored procedure desatualizada, Gestor de Procedures (CFGX051M) | [Procedures](references/procedures.md) |
 
 Para gerar suítes TIR, use a skill EngPro `tir-test-generator` (5.1.0 ou superior): ela define a arquitetura de três arquivos (TESTCASE, TESTSUITE, config), Webapp x Poui, o padrão dual-helper e as chaves `POUILogin`/`POUI`/`NewHome`. Esta skill define o que conta como evidência e aceite; em conflito, a API do pacote TIR instalado prevalece sobre as duas. Resumo da integração na seção "Integração EngPro" de [Interface](references/tir.md). Onde o TIR não conclui o `Setup` (WebApp 26 e SmartClient HTML 10, em 02/11/2026), complemente com Playwright conforme a seção "Complemento Playwright" da mesma referência. Testes unitários TLPP/AdvPL podem usar ProBat conforme suporte da release; esta skill não inventa chamadas. Antes de criar AdvPL/TLPP, valide símbolos no codebase/fontes padrão/exemplos/TDN e preserve CP1252; não copie fontes proprietários para o time.
 
