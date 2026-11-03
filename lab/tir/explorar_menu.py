@@ -40,3 +40,5 @@ with pw.navegador() as pg:
     if destino:
         pg.screenshot(path=destino)
         print("captura:", destino)
+    # Sair pelo Log Off -> Finalizar devolve a licenca de desenvolvimento (fechar o navegador nao).
+    print("saida:", "ok" if pw.sair_do_sistema(pg) else "FALHOU (plab restart <rel> libera a licenca)")

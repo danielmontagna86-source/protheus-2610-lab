@@ -5,6 +5,7 @@
     {"nome": "fornecedores", "rotina": "MATA020", "modulo": 2, "menu": ["Atualizações", "Cadastros", "Fornecedores"], "aba": "Fornecedores", "titulo": "", "releases": ["2610", "2510"]},
     {"nome": "clientes", "rotina": "MATA030 / CRMA980", "modulo": 5, "menu": ["Atualizações", "Cadastros", "Clientes"], "aba": "Clientes", "titulo": "", "releases": ["2610", "2510"]},
     {"nome": "contas-receber", "rotina": "FINA040", "modulo": 6, "menu": ["Atualizações", "Contas a Receber", "Contas a Receber"], "aba": "Contas a Receber", "titulo": "", "aviso": "MV_1DUP", "releases": ["2610", "2510"]},
-    {"nome": "contas-pagar", "rotina": "FINA050", "modulo": 6, "menu": ["Atualizações", "Contas a Pagar", "Contas a Pagar"], "aba": "Contas a Pagar", "titulo": "", "aviso": "MV_1DUP", "releases": ["2610", "2510"]}
+    {"nome": "contas-pagar", "rotina": "FINA050", "modulo": 6, "menu": ["Atualizações", "Contas a Pagar", "Contas a Pagar"], "aba": "Contas a Pagar", "titulo": "", "aviso": "MV_1DUP", "releases": ["2610", "2510"]},
+    {"nome": "pedido-compra", "rotina": "MATA121", "modulo": 2, "menu": ["Atualizações", "Pedidos", "Pedidos de Compra"], "aba": "Pedidos de Compra", "titulo": "", "releases": ["2610", "2510"]}
   ]
 }

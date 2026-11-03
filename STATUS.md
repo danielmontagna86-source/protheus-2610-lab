@@ -114,6 +114,21 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   Refeita em 03/11/2026 (autorizado pelo dono) depois de recriar a base: senha de 16 caracteres
   gerada no container e gravada só no `.env`; `plab smoke 2510` → PRONTO nos 5 passos.
 
+## Cenário pedido-compra (03/11/2026, noite)
+
+- Sugestão de um comentário no LinkedIn (Pedido de Compra com alçada). Menu do módulo Compras
+  explorado nas duas releases; a rotina está em Atualizações > Pedidos > Pedidos de Compra.
+- `lab cenarios 2610` → 6/6 (`2610/cenarios-20261103-201603`); `lab cenarios 2510` → 6/6
+  (`2510/cenarios-20261103-202412`), todas as sessões saindo por "Log Off → Finalizar".
+- Alçada não testada: a base de demonstração das duas releases tem 1 pedido (000001, 14 itens)
+  já liberado (`C7_CONAPRO = L`), `SCR` vazia, `SAL` inexistente, `SAK` vazia (2610) ou
+  inexistente (2510) e `MV_APRPCEC` = F (consulta somente leitura). Proposta na issue #16.
+- Correção: `lab/tir/explorar_menu.py` não saía por "Log Off → Finalizar" e prendia licença de
+  desenvolvimento a cada exploração. Agora sai pelo `sair_do_sistema` ("saida: ok" nas 5 execuções
+  seguintes). As 3 sessões presas antes da correção foram liberadas com `plab restart 2610`.
+- O container `lab` em uso recebeu os dois arquivos por `docker cp`; quem atualizar o repositório
+  precisa reconstruir a imagem (`docker compose ... build`), como já registrado.
+
 ## Divulgação
 
 - 03/11/2026 (autorizado pelo dono: "já pode fazer agora no LinkedIn"), conta Daniel Montagna:
