@@ -61,6 +61,47 @@ EOF
   chmod 755 "${HOME}/.local/bin/gemini"
 }
 
+# Login de conta conduzido pelo setup. O Gemini mostra a URL numa "tela alternativa" do terminal e,
+# se o login nao conclui, volta para a tela de chave de API e grava selectedType=gemini-api-key
+# (visto em 03/11/2026 num terminal Windows). Aqui ele roda num terminal interno (script): o setup
+# mostra a URL na tela normal, le o codigo e o repassa; ao gravar oauth_creds.json, fecha o Gemini.
+gemini_login_conta() {
+  local d pid url codigo _
+  d=$(mktemp -d /tmp/plab-gemini.XXXXXX); chmod 700 "$d"; mkfifo "$d/in"
+  ( cd /workspace 2>/dev/null || cd "$HOME" || exit 1
+    NO_BROWSER=true exec script -qfec "${NPM_PREFIXO}/bin/gemini" "$d/out" < "$d/in" > /dev/null 2>&1 ) &
+  pid=$!
+  exec 7> "$d/in"
+  url=""
+  for _ in $(seq 1 60); do
+    url=$(sed -E 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$d/out" 2>/dev/null | tr '\r\n' '  ' \
+          | grep -aoE 'https://accounts\.google\.com/o/oauth2/v2/auth[^[:space:]]+' | head -n 1)
+    [ -n "$url" ] && break
+    sleep 1
+  done
+  if [ -z "$url" ]; then
+    echo "  gemini: a URL de login nao apareceu em 60 s"
+  else
+    echo
+    echo "  1. Abra esta URL no navegador do seu computador (copie a linha inteira):"
+    echo
+    echo "$url"
+    echo
+    echo "  2. Entre com sua conta Google e autorize; o Google mostra um codigo."
+    IFS= read -r -p "  3. Cole o codigo aqui e tecle Enter: " codigo
+    printf '%s\r' "$codigo" >&7
+    unset codigo
+    for _ in $(seq 1 60); do [ -s "$GEMINI_OAUTH" ] && break; sleep 1; done
+  fi
+  printf '/quit\r' >&7 2>/dev/null; sleep 3
+  exec 7>&-
+  kill "$pid" 2>/dev/null; pkill -f "${NPM_PREFIXO}/bin/gemini" 2>/dev/null; wait "$pid" 2>/dev/null
+  rm -rf "$d"  # o registro do terminal interno tem o codigo digitado
+  gemini_tipo_auth oauth-personal  # o Gemini troca para chave quando o login falha
+  if [ -s "$GEMINI_OAUTH" ]; then chmod 600 "$GEMINI_OAUTH"; echo "  gemini: login Google concluido"; return 0; fi
+  echo "  gemini: login nao concluido (sem $GEMINI_OAUTH)"; return 1
+}
+
 gemini_autenticar() { # modo: conta|api_key ; interativo: 1|0
   local modo=$1 interativo=$2
   case "$modo" in
@@ -74,13 +115,7 @@ gemini_autenticar() { # modo: conta|api_key ; interativo: 1|0
         else return 0; fi
       fi
       [ "$interativo" = 1 ] || return 2
-      echo "  gemini: login com conta Google (sem chave de API):"
-      echo "    1. copie a URL que aparecer e abra no navegador do seu computador;"
-      echo "    2. entre com sua conta Google e autorize; o Google mostra um codigo;"
-      echo "    3. cole o codigo em 'Enter the authorization code' e tecle Enter;"
-      echo "    4. quando o Gemini abrir, digite /quit e tecle Enter para voltar ao setup."
-      ( cd /workspace 2>/dev/null || cd "$HOME"; NO_BROWSER=true "${HOME}/.local/bin/gemini" ) || true
-      [ -s "$GEMINI_OAUTH" ] || { echo "  gemini: login nao concluido (sem $GEMINI_OAUTH)"; return 2; }
+      gemini_login_conta || return 2
       chmod 600 "$GEMINI_OAUTH" ;;
     api_key)
       gemini_tipo_auth gemini-api-key
