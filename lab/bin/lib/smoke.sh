@@ -69,13 +69,23 @@ resumo=$(grep -m1 '^resumo compile' "$evid/compile.out" | sed 's/^resumo compile
 if [ "$rc" -eq 0 ]; then ok 3 compile "$resumo"
 else falhou 3 compile "rc=$rc ${resumo:-$(grep -m1 '^lab:' "$evid/compile.out")}"; fi
 
-# 4. limpeza: nenhum arquivo temporario com credencial pode sobrar
+# 4. limpeza: nenhum arquivo temporario com credencial pode sobrar e a senha nao pode aparecer nas
+#    evidencias desta execucao nem nas do "lab ui" avulso (/tmp/plab-ui-*, padrao do ui.sh).
+#    A senha e lida como no senha_admin (sem \r\n) e vai para o grep por arquivo (-f), nunca em argv.
 sobras=$(find /tmp -maxdepth 1 \( -name 'plab-compile.*' -o -name 'plab-tir.*' \) -user "$(id -u)" 2>/dev/null | wc -l)
-if [ "$sobras" -eq 0 ] && ! grep -rqs -F -f <(cat /run/secrets/plab_"$rel"_admin_password) "$evid"; then
-  ok 4 limpeza "sem temporarios; nenhuma senha nas evidencias"
-else
-  falhou 4 limpeza "temporarios=$sobras ou senha encontrada nas evidencias"
+alvos_limpeza=("$evid")
+while IFS= read -r -d '' d; do alvos_limpeza+=("$d"); done \
+  < <(find /tmp -maxdepth 1 -type d -name 'plab-ui-*' -user "$(id -u)" -print0 2>/dev/null)
+senha=$(senha_admin "$rel" 2>/dev/null) || senha=""
+if [ -z "$senha" ]; then
+  falhou 4 limpeza "secret da senha ausente ou vazio: nao da para conferir as evidencias"
+elif [ "$sobras" -ne 0 ]; then
+  unset senha; falhou 4 limpeza "temporarios=$sobras em /tmp"
+elif grep -rqs -F -f <(printf '%s\n' "$senha") -- "${alvos_limpeza[@]}"; then
+  unset senha; falhou 4 limpeza "senha encontrada nas evidencias"
 fi
+unset senha
+ok 4 limpeza "sem temporarios; nenhuma senha nas evidencias"
 
 echo "PRONTO $rel — evidencias: $evid"
 finalizar "PRONTO" 0
