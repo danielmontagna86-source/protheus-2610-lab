@@ -124,7 +124,7 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   já liberado (`C7_CONAPRO = L`), `SCR` vazia, `SAL` inexistente, `SAK` vazia (2610) ou
   inexistente (2510) e `MV_APRPCEC` = F (consulta somente leitura). Proposta na issue #16.
 - Correção: `lab/tir/explorar_menu.py` não saía por "Log Off → Finalizar" e prendia licença de
-  desenvolvimento a cada exploração. Agora sai pelo `sair_do_sistema` ("saida: ok" nas 5 execuções
+  desenvolvimento a cada exploração. Agora sai pelo `sair_do_sistema` ("saida: ok" nas 4 explorações
   seguintes). As 3 sessões presas antes da correção foram liberadas com `plab restart 2610`.
 - O container `lab` em uso recebeu os dois arquivos por `docker cp`; quem atualizar o repositório
   precisa reconstruir a imagem (`docker compose ... build`), como já registrado.
