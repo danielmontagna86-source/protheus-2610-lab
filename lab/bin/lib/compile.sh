@@ -33,10 +33,22 @@ mkdir -p "$tmp/include"
 trap 'rm -rf "$tmp"' EXIT
 
 # Copia os fontes com nome minusculo, preservando bytes (CP1252/CRLF).
+# O "program=" do advpls e uma lista separada por virgula: nome com virgula ou espaco quebra a
+# lista. Dois fontes com o mesmo nome (em pastas diferentes ou so com caixa diferente) virariam o
+# mesmo arquivo no diretorio temporario, e o RPO guarda um fonte por nome: recusa antes de compilar.
 lista=()
+declare -A vistos=()
 for f in "$@"; do
   [ -f "$f" ] || { erro "fonte nao encontrado: $f"; exit 2; }
-  destino="$tmp/src/$(basename "$f" | tr '[:upper:]' '[:lower:]')"
+  nome=$(basename "$f" | tr '[:upper:]' '[:lower:]')
+  case "$nome" in
+    *,*|*[[:space:]]*) erro "nome de fonte com virgula ou espaco nao e aceito pelo advpls: $f"; exit 2 ;;
+  esac
+  if [ -n "${vistos[$nome]:-}" ]; then
+    erro "dois fontes com o mesmo nome no RPO ($nome): ${vistos[$nome]} e $f"; exit 2
+  fi
+  vistos[$nome]=$f
+  destino="$tmp/src/$nome"
   mkdir -p "$tmp/src"
   cp -- "$f" "$destino"
   lista+=("$destino")
@@ -54,7 +66,14 @@ umask 077
   # em todo .prw. O advpls precisa de ESCRITA no diretorio de includes (verificado em
   # 2026-11-02: o volume montado ro falha com C2090), entao usa-se uma copia temporaria.
   printf 'includes=%s\n' "$tmp/include"
-} | iconv -f UTF-8 -t CP1252 > "$script"
+} | iconv -f UTF-8 -t CP1252 > "$script" 2>/dev/null
+# Sem conferir, um caractere fora do CP1252 (na senha, por exemplo) gerava um script truncado.
+# A mensagem do iconv fica de fora: ela pode citar a posicao do caractere na linha psw.
+if [ "${PIPESTATUS[1]}" -ne 0 ]; then
+  unset senha
+  erro "o script do advpls nao pode ser gravado em CP1252: usuario, senha ou caminho com caractere fora do CP1252. Troque a senha do $usuario da $rel por uma so com caracteres CP1252 e atualize PLAB_${rel}_ADMIN_PASSWORD no .env."
+  exit 23
+fi
 inc_origem=${PLAB_INCLUDES:-/opt/plab-includes}
 [ -f "$inc_origem/PRTOPDEF.CH" ] || [ -f "$inc_origem/prtopdef.ch" ] || {
   erro "includes ausentes em $inc_origem (rode no host: plab up lab, que semeia o volume includes)"; exit 4; }

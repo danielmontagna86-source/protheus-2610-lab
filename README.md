@@ -197,6 +197,8 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 | Login pede "Alterar senha" | prazo da política vencido | `plab up <rel>` renova a data |
 | `lab compile` código 21 | RPO em uso (COMPILEERROR-300) | feche as sessões do ambiente de compilação |
 | `lab compile` código 22 | senha com `$` | ver Problemas conhecidos, item 2 |
+| `lab compile` código 23 | senha com caractere fora do CP1252 | troque a senha do Admin por uma só com caracteres CP1252 |
+| `lab compile` código 2 com "mesmo nome" ou "virgula ou espaco" | dois fontes com o mesmo nome ou nome atípico | renomeie o fonte; o RPO guarda um fonte por nome |
 | `lab compile` com `C2090 File not found PRTOPDEF.CH` | volume de includes vazio | `plab up lab` (o `includes-init` semeia) |
 
 ## Marcas e afiliação

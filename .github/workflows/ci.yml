@@ -56,6 +56,7 @@ jobs:
           bash lab/tests/test_semear_volume.sh
           bash lab/tests/test_plab_env.sh
           bash lab/tests/test_smoke_limpeza.sh
+          bash lab/tests/test_compile_entradas.sh
 
       - name: compose config (2610, 2510, lab)
         run: |
