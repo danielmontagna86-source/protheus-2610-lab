@@ -26,6 +26,8 @@ SETUP="$PLAB_HOME/lab/setup"
 . "$SETUP/providers/gemini.sh"
 
 NPM_PREFIXO="${HOME}/.npm-global"
+# PLAB_WORKSPACE existe so para os testes locais (lab/tests); no lab e sempre /workspace.
+WORKSPACE=${PLAB_WORKSPACE:-/workspace}
 IAS_SUPORTADAS="claude codex opencode gemini"
 
 rel=""; ias=""; auth=""; exemplos=""; interativo=1; smoke=1
@@ -43,6 +45,7 @@ done
 [ -t 0 ] || interativo=0
 
 estado_iniciar
+estado_sanear
 segredos_preparar
 mkdir -p "$NPM_PREFIXO"
 
@@ -110,7 +113,10 @@ for ia in $ias; do
   elif teste=$("${ia}_testar"); then
     st="testado_ok"
   else
-    st="falhou(teste: ${teste})"
+    # So a categoria vai para o state.json (contrato: sem segredo). A saida da CLI pode ecoar parte
+    # mascarada da chave, entao aparece so no terminal, para o diagnostico.
+    st="falhou(teste)"
+    echo "  $ia: teste falhou: ${teste}" >&2
   fi
   estado_set ".ias.$ia.estado" "$st"
   resumo+=("$ia|$modo|$st")
@@ -126,9 +132,9 @@ for d in "${dirs_skills[@]}"; do
 done
 # shellcheck disable=SC2016  # os acentos graves sao markdown, nao expansao
 lista=$(echo "$nomes" | sed '/^$/d; s/^/- `/; s/$/`/')
-gerar_instrucoes "$rel" "${lista:-- (nenhuma IA configurada)}" /workspace
+gerar_instrucoes "$rel" "${lista:-- (nenhuma IA configurada)}" "$WORKSPACE"
 estado_set '.workspace.instrucoes' "AGENTS.md CLAUDE.md GEMINI.md"
-echo "  AGENTS.md, CLAUDE.md e GEMINI.md atualizados em /workspace (bloco plab)"
+echo "  AGENTS.md, CLAUDE.md e GEMINI.md atualizados em $WORKSPACE (bloco plab)"
 
 echo "== 7/7 smoke"
 st_smoke="pulado"
@@ -141,4 +147,13 @@ echo "Resumo do lab setup (release $rel)"
 printf '  %-9s %-8s %s\n' IA modo estado
 for l in "${resumo[@]}"; do IFS='|' read -r a m s <<<"$l"; printf '  %-9s %-8s %s\n' "$a" "$m" "$s"; done
 echo "  smoke: $st_smoke"
-case "$st_smoke" in PRONTO|pulado) exit 0 ;; *) exit 1 ;; esac
+# Codigo 1 quando o smoke falhou ou alguma IA ficou em falhou(...). nao_testado e nao_suportado
+# nao reprovam: sao o resultado esperado de --nao-interativo e de modo nao documentado pela CLI.
+ias_falhas=""
+for l in "${resumo[@]}"; do
+  IFS='|' read -r a _ s <<<"$l"
+  case "$s" in falhou\(*) ias_falhas+=" $a" ;; esac
+done
+case "$st_smoke" in PRONTO|pulado) ;; *) exit 1 ;; esac
+if [ -n "$ias_falhas" ]; then echo "  IAs com falha:$ias_falhas"; exit 1; fi
+exit 0

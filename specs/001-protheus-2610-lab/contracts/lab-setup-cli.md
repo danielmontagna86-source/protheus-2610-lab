@@ -35,6 +35,14 @@ lab versions
 8. Roda `lab smoke <release>`.
 9. Imprime resumo: IA × modo × estado; termina com PRONTO ou o passo que falhou.
 
+## Código de saída do `lab setup`
+
+Emenda de 03/11/2026 (L6 da revisão independente): `0` quando nenhuma IA ficou em `falhou(...)` e o
+smoke deu PRONTO (ou foi pulado com `--sem-smoke`); `1` quando o smoke falhou ou alguma IA ficou em
+`falhou(...)`; `2` uso incorreto; `3` nenhuma release respondendo ou doctor falhou. `nao_testado(...)`
+e `nao_suportado(...)` não reprovam. No `state.json` vai só a categoria (`falhou(instalacao)`,
+`falhou(autenticacao)`, `falhou(teste)`); a saída da CLI no teste aparece só no terminal.
+
 ## Idempotência
 
 Estado em `~/.config/lab/state.json` (sem segredo). Reexecução: pula o que está `testado_ok`,
