@@ -5,6 +5,7 @@ set -euo pipefail
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REDE=plab
+ROTULO_DONO=com.plab.owner
 RELEASES=(2610 2510)
 
 sair() { local cod=$1; shift; [ $# -gt 0 ] && echo "plab: $*" >&2; exit "$cod"; }
@@ -46,9 +47,26 @@ alvos() {
   esac
 }
 
+# A rede e criada com o label com.plab.owner=plab e uma rede "plab" sem ele nao e reutilizada
+# (Principio IV). Excecao: rede de versao anterior do plab (sem label) em que todos os containers
+# ligados sao dos projetos plab-*; segue com aviso para recriar quando puder.
 garantir_rede() {
-  if docker network inspect "$REDE" >/dev/null 2>&1; then echo "rede $REDE ja existe"
-  else docker network create "$REDE" >/dev/null || sair 3 "falha ao criar a rede $REDE"; echo "rede $REDE criada"; fi
+  if ! docker network inspect "$REDE" >/dev/null 2>&1; then
+    docker network create --label "$ROTULO_DONO=plab" "$REDE" >/dev/null || sair 3 "falha ao criar a rede $REDE"
+    echo "rede $REDE criada"; return 0
+  fi
+  if [ "$(docker network inspect "$REDE" --format "{{index .Labels \"$ROTULO_DONO\"}}" 2>/dev/null)" = plab ]; then
+    echo "rede $REDE ja existe"; return 0
+  fi
+  local projetos
+  projetos=$(docker ps -a --filter "network=$REDE" --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null | sort -u)
+  if [ -n "$projetos" ] && ! grep -qvxE 'plab-(2610|2510|lab)' <<<"$projetos"; then
+    echo "plab: aviso: a rede $REDE nao tem o label $ROTULO_DONO=plab (criada por versao anterior do plab)." \
+         "Para recriar: ./plab down all && docker network rm $REDE && ./plab net" >&2
+    return 0
+  fi
+  sair 3 "ja existe uma rede '$REDE' sem o label $ROTULO_DONO=plab, que o plab nao reutiliza." \
+         "Se for de outro projeto, renomeie a dele; se for de uma versao anterior do lab: docker network rm $REDE"
 }
 
 projeto_rodando() { [ -n "$(docker ps -q --filter "label=com.docker.compose.project=plab-$1")" ]; }

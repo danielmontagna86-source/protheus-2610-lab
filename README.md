@@ -70,7 +70,7 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 
 | Host | Dentro do container lab | O que faz |
 |---|---|---|
-| `plab net` | — | cria a rede `plab` (idempotente) |
+| `plab net` | — | cria a rede `plab` com o label `com.plab.owner=plab` (idempotente); recusa uma rede `plab` de outro projeto |
 | `plab ports` | — | portas configuradas e se estão livres |
 | `plab up <alvo>` / `plab down <alvo> [--volumes]` | — | sobe (aguarda healthy) ou derruba `2610`, `2510`, `lab` ou `all` |
 | `plab status [alvo]` / `plab logs <alvo> [serviço]` | — | estado, URLs e logs |
