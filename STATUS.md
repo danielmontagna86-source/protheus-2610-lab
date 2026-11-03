@@ -149,6 +149,11 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   - artigo atualizado: o parágrafo "Próximos passos" agora traz os links do repositório e da página
     (conferido na versão pública);
   - bundle de backup do histórico apagado, como combinado.
+- 03/11/2026, noite: calendário da Fase 4 aprovado pelo dono ("aprovado, pode publicar o post 1
+  amanhã"). Post 1 (repositório aberto) agendado no LinkedIn para qua 04/11 às 08:30, com o print do
+  smoke e texto alternativo; texto aprovado com dois ajustes de fato (6 cenários, com Pedido de
+  Compra, e issues sem número fixo). Segunda resposta ao comentário do Pedido de Compra com o
+  resultado e o link da issue #16.
 
 ## Conferência pré-publicação (03/11/2026)
 
