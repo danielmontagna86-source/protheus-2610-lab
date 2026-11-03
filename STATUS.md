@@ -1,6 +1,6 @@
 # STATUS — Protheus 2610 Lab
 
-Última atualização: 2026-11-03
+Última atualização: 2026-11-03 (divulgação no LinkedIn)
 
 ## Fase atual
 
@@ -104,7 +104,8 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 ## Decisões de governança
 
 - **Renovação da data de troca de senha do Admin** (M2 da revisão): decisão técnica do agente em
-  2026-11-02, registrada aqui para revisão do dono (ver AGUARDANDO_USUARIO). Motivo: a base 2510 da imagem já nasce com a senha vencida pela política, e o login
+  2026-11-02, **mantida pelo dono em 03/11/2026** depois do teste que mostrou que zerar o prazo
+  (política, grupo ou usuário) não tira o vencimento. Motivo: a base 2510 da imagem já nasce com a senha vencida pela política, e o login
   automatizado não pode passar pela troca obrigatória. Não altera a senha nem desliga a política;
   só atualiza `usr_dtchgpsw` do usuário 000000. Aplicada só nas releases de
   `PLAB_RENOVAR_SENHA_ADMIN` (padrão 2510). A senha do banco é lida dentro do container.
@@ -113,6 +114,16 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   Refeita em 03/11/2026 (autorizado pelo dono) depois de recriar a base: senha de 16 caracteres
   gerada no container e gravada só no `.env`; `plab smoke 2510` → PRONTO nos 5 passos.
 
+## Divulgação
+
+- 03/11/2026 (autorizado pelo dono: "já pode fazer agora no LinkedIn"), conta Daniel Montagna:
+  - artigo: https://www.linkedin.com/pulse/protheus-2610-e-2510-lado-com-testes-de-tela-ia-o-que-montagna-7rt5f/
+    (texto conferido por hash contra `divulgacao/TEXTOS-PARA-APROVAR.md`; capa e 6 imagens);
+    o LinkedIn gerou o cartão automático do artigo no feed, sem texto;
+  - post com o carrossel (PDF, 9 páginas): https://www.linkedin.com/feed/update/urn:li:activity:7523461833916362752/
+    (texto idêntico ao aprovado);
+  - primeiro comentário com o link do artigo, o e-book e o "Comente LAB" (repositório ainda privado).
+
 ## Bloqueios
 
 Nenhum.
@@ -120,10 +131,7 @@ Nenhum.
 ## AGUARDANDO_USUARIO
 
 - Publicação pública do repositório: exige nova autorização.
-- Renovação automática da data de troca de senha do Admin na 2510: o dono pediu para retirar e deixar
-  a senha sem vencimento; o teste mostrou que zerar o prazo (política, grupo ou usuário) não tira o
-  vencimento. Decidir: manter a renovação (atual) ou desligar (`PLAB_RENOVAR_SENHA_ADMIN=` vazio) e
-  trocar a senha pela tela a cada 90 dias e em toda base recriada.
+- Próximos passos de git e divulgação: ver `docs/plano-publicacao.md`.
 
 ## Riscos
 
