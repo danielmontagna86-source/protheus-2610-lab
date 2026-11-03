@@ -123,6 +123,17 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   - post com o carrossel (PDF, 9 páginas): https://www.linkedin.com/feed/update/urn:li:activity:7523461833916362752/
     (texto idêntico ao aprovado);
   - primeiro comentário com o link do artigo, o e-book e o "Comente LAB" (repositório ainda privado).
+- 03/11/2026, depois da abertura do repositório (feita pelo dono; `gh repo view` → PUBLIC e acesso
+  anônimo HTTP 200):
+  - página https://lp.protheusialab.com.br/lab/ no ar (HTTP 200, capa e 2 prints carregando);
+    menu e rodapé da rede com 11 itens nas 9 páginas (`propagate.py` OK); backups `.bak_lab_20261103_1738`;
+  - primeiro comentário editado: "Comente LAB" trocado pelos links do repositório e da página
+    (conferido após recarregar; ninguém tinha comentado "LAB");
+  - resposta ao único comentário do post (sugestão de Pedido de Compra com alçada como cenário),
+    autorizada pelo dono;
+  - artigo atualizado: o parágrafo "Próximos passos" agora traz os links do repositório e da página
+    (conferido na versão pública);
+  - bundle de backup do histórico apagado, como combinado.
 
 ## Conferência pré-publicação (03/11/2026)
 

@@ -26,6 +26,9 @@ antes de ser executado. Os demais o agente pode fazer quando o passo anterior es
   `_shared/_footer.html` e `propagate.py`, agora com 11 itens) e validada em cópia do site
   (desktop 1440 px e celular 375 px, sem rolagem horizontal, imagens carregadas). Publicação no site
   fica para logo depois da abertura do repositório, porque os botões apontam para o GitHub.
+- Fase 2 e 3 concluídas (03/11/2026, noite): repositório público pelo dono; página no ar; primeiro
+  comentário e artigo do LinkedIn atualizados com os links; bundle de backup apagado. Detalhes no
+  `STATUS.md`, seção Divulgação. Falta: métricas de 24 h e calendário da Fase 4.
 
 ## Fase 1 — Fechar o repositório privado (agente)
 
