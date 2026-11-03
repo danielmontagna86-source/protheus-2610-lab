@@ -96,6 +96,15 @@ gemini_login_conta() {
   printf '/quit\r' >&7 2>/dev/null; sleep 3
   exec 7>&-
   kill "$pid" 2>/dev/null; pkill -f "${NPM_PREFIXO}/bin/gemini" 2>/dev/null; wait "$pid" 2>/dev/null
+  if [ ! -s "$GEMINI_OAUTH" ] && [ -s "$d/out" ]; then
+    # Mensagens de erro do proprio Gemini, para diagnostico. Saneadas: sem a linha do codigo e com
+    # qualquer sequencia longa (token, codigo, URL) trocada por <omitido>.
+    echo "  gemini: mensagens do Gemini sobre a falha:"
+    sed -E 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\x1b\][^\a]*\a//g' "$d/out" | tr -d '\r' \
+      | grep -aiE 'error|erro|fail|falh|denied|permission|project|not supported|unsupported|eligib|quota|region' \
+      | grep -avi 'Enter the authorization code' \
+      | sed -E 's#[A-Za-z0-9_./~+=%-]{25,}#<omitido>#g' | sort -u | head -n 12 | sed 's/^/    /'
+  fi
   rm -rf "$d"  # o registro do terminal interno tem o codigo digitado
   gemini_tipo_auth oauth-personal  # o Gemini troca para chave quando o login falha
   if [ -s "$GEMINI_OAUTH" ]; then chmod 600 "$GEMINI_OAUTH"; echo "  gemini: login Google concluido"; return 0; fi
