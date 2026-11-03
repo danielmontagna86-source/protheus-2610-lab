@@ -195,3 +195,13 @@ escopos lidos do pacote instalado, PKCE, redirect `codeassist.google.com/authcod
 `invalid_client`; credencial nesse formato é lida pelo CLI (`Cached credentials are not valid:
 invalid_grant` com token falso). Não verificado: uso real com a conta do dono (onboarding do Code
 Assist), que o teste "Responda apenas: OK" do setup cobre.
+
+### R-07.4 Conta pessoal gratuita recusada pelo Google para o Gemini CLI (03/11/2026)
+
+Com login real do dono (gmail pessoal) concluído, a primeira chamada falha em `setupUser` com
+`IneligibleTierError`: `reasonCode: 'UNSUPPORTED_CLIENT'`, plano `free-tier` ("Gemini Code Assist for
+individuals"), mensagem "This client is no longer supported for Gemini Code Assist for individuals. To
+continue using Gemini, please migrate to the Antigravity suite of products". Ou seja: o login de conta
+funciona, mas o Google não atende o Gemini CLI no plano gratuito de conta pessoal. Caminho suportado no
+lab: `--auth api_key` (chave do Google AI Studio). Não verificado: contas com Gemini Code Assist pago /
+projeto Google Cloud.

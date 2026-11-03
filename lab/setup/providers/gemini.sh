@@ -100,9 +100,19 @@ gemini_autenticar() { # modo: conta|api_key ; interativo: 1|0
 }
 
 gemini_testar() {
-  local saida
-  saida=$(timeout 180 "${HOME}/.local/bin/gemini" --skip-trust -p "Responda apenas: OK" 2>&1) || { echo "falhou: ${saida:0:160}"; return 1; }
-  grep -q 'OK' <<<"$saida" || { echo "resposta inesperada: ${saida:0:160}"; return 1; }
+  local saida motivo
+  saida=$(timeout 180 "${HOME}/.local/bin/gemini" --skip-trust -p "Responda apenas: OK" 2>&1 | grep -av -e '256-color' -e 'Ripgrep is not available')
+  if grep -q 'OK' <<<"$saida" && ! grep -qi 'error' <<<"$saida"; then return 0; fi
+  # Recusa do Google ao plano gratuito de conta pessoal (visto em 03/11/2026: IneligibleTierError,
+  # UNSUPPORTED_CLIENT, "no longer supported for Gemini Code Assist for individuals").
+  motivo=$(grep -aoE "reasonCode: '[A-Z_]+'|no longer supported for [^.]*" <<<"$saida" | head -n 2 | tr '
+' ' ')
+  if [ -n "$motivo" ]; then
+    echo "recusado pelo Google: ${motivo}- use --auth api_key (chave do AI Studio)"
+  else
+    echo "falhou: $(grep -aiE 'error' <<<"$saida" | head -n 1 | sed -E 's#[A-Za-z0-9_./-]{30,}#<omitido>#g' | cut -c1-200)"
+  fi
+  return 1
 }
 
 gemini_dir_skills() { echo "$GEMINI_DIR_SKILLS"; }
