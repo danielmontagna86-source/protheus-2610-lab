@@ -61,54 +61,16 @@ EOF
   chmod 755 "${HOME}/.local/bin/gemini"
 }
 
-# Login de conta conduzido pelo setup. O Gemini mostra a URL numa "tela alternativa" do terminal e,
-# se o login nao conclui, volta para a tela de chave de API e grava selectedType=gemini-api-key
-# (visto em 03/11/2026 num terminal Windows). Aqui ele roda num terminal interno (script): o setup
-# mostra a URL na tela normal, le o codigo e o repassa; ao gravar oauth_creds.json, fecha o Gemini.
+# Login de conta conduzido pelo setup (lib/gemini_oauth.mjs): faz o OAuth do CLI (cliente "aplicativo
+# instalado" + PKCE, redirect codeassist.google.com/authcode, lido do pacote instalado) e grava
+# ~/.gemini/oauth_creds.json no formato que o CLI le. Motivo: na tela interativa do CLI a URL fica numa
+# tela alternativa, o pedido de codigo expira em 5 min e, se falha, o CLI troca para chave de API sem
+# mostrar o erro (visto em 03/11/2026). Verificado: codigo falso -> invalid_grant; segredo adulterado
+# -> invalid_client; credencial no formato gravado e lida pelo CLI ("Cached credentials ... invalid_grant").
 gemini_login_conta() {
-  local d pid url codigo _
-  d=$(mktemp -d /tmp/plab-gemini.XXXXXX); chmod 700 "$d"; mkfifo "$d/in"
-  ( cd /workspace 2>/dev/null || cd "$HOME" || exit 1
-    NO_BROWSER=true exec script -qfec "${NPM_PREFIXO}/bin/gemini" "$d/out" < "$d/in" > /dev/null 2>&1 ) &
-  pid=$!
-  exec 7> "$d/in"
-  url=""
-  for _ in $(seq 1 60); do
-    url=$(sed -E 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$d/out" 2>/dev/null | tr '\r\n' '  ' \
-          | grep -aoE 'https://accounts\.google\.com/o/oauth2/v2/auth[^[:space:]]+' | head -n 1)
-    [ -n "$url" ] && break
-    sleep 1
-  done
-  if [ -z "$url" ]; then
-    echo "  gemini: a URL de login nao apareceu em 60 s"
-  else
-    echo
-    echo "  1. Abra esta URL no navegador do seu computador (copie a linha inteira):"
-    echo
-    echo "$url"
-    echo
-    echo "  2. Entre com sua conta Google e autorize; o Google mostra um codigo."
-    IFS= read -r -p "  3. Cole o codigo aqui e tecle Enter: " codigo
-    printf '%s\r' "$codigo" >&7
-    unset codigo
-    for _ in $(seq 1 60); do [ -s "$GEMINI_OAUTH" ] && break; sleep 1; done
-  fi
-  printf '/quit\r' >&7 2>/dev/null; sleep 3
-  exec 7>&-
-  kill "$pid" 2>/dev/null; pkill -f "${NPM_PREFIXO}/bin/gemini" 2>/dev/null; wait "$pid" 2>/dev/null
-  if [ ! -s "$GEMINI_OAUTH" ] && [ -s "$d/out" ]; then
-    # Mensagens de erro do proprio Gemini, para diagnostico. Saneadas: sem a linha do codigo e com
-    # qualquer sequencia longa (token, codigo, URL) trocada por <omitido>.
-    echo "  gemini: mensagens do Gemini sobre a falha:"
-    sed -E 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\x1b\][^\a]*\a//g' "$d/out" | tr -d '\r' \
-      | grep -aiE 'error|erro|fail|falh|denied|permission|project|not supported|unsupported|eligib|quota|region' \
-      | grep -avi 'Enter the authorization code' \
-      | sed -E 's#[A-Za-z0-9_./~+=%-]{25,}#<omitido>#g' | sort -u | head -n 12 | sed 's/^/    /'
-  fi
-  rm -rf "$d"  # o registro do terminal interno tem o codigo digitado
-  gemini_tipo_auth oauth-personal  # o Gemini troca para chave quando o login falha
-  if [ -s "$GEMINI_OAUTH" ]; then chmod 600 "$GEMINI_OAUTH"; echo "  gemini: login Google concluido"; return 0; fi
-  echo "  gemini: login nao concluido (sem $GEMINI_OAUTH)"; return 1
+  node "${PLAB_HOME:-/opt/plab}/lab/setup/lib/gemini_oauth.mjs" "${NPM_PREFIXO}/lib/node_modules/${GEMINI_PACOTE}" || return 1
+  gemini_tipo_auth oauth-personal
+  [ -s "$GEMINI_OAUTH" ] && chmod 600 "$GEMINI_OAUTH"
 }
 
 gemini_autenticar() { # modo: conta|api_key ; interativo: 1|0

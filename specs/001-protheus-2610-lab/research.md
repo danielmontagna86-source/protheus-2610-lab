@@ -184,3 +184,14 @@ authorize the application", o Google exibe o código em `codeassist.google.com/a
 interativo) o login manual é recusado ("Manual authorization is required but the current session is
 non-interactive"), por isso o setup abre o CLI interativo e o usuário sai com `/quit`. A conclusão
 anterior (R-07.1, "só api_key") estava errada: a sessão de nuvem não conseguiu ler a documentação.
+
+### R-07.3 Login do Gemini conduzido pelo setup (03/11/2026)
+
+Na tela interativa do CLI (terminal Windows → `docker exec -it`) a URL fica numa tela alternativa, o
+pedido de código expira em 5 minutos e, se o login falha, o CLI troca para chave de API sem mostrar o
+erro. O setup passou a fazer o mesmo OAuth do CLI (`lab/setup/lib/gemini_oauth.mjs`: cliente e
+escopos lidos do pacote instalado, PKCE, redirect `codeassist.google.com/authcode`) e grava
+`~/.gemini/oauth_creds.json` (600). Verificado: código falso → `invalid_grant`; segredo adulterado →
+`invalid_client`; credencial nesse formato é lida pelo CLI (`Cached credentials are not valid:
+invalid_grant` com token falso). Não verificado: uso real com a conta do dono (onboarding do Code
+Assist), que o teste "Responda apenas: OK" do setup cobre.
