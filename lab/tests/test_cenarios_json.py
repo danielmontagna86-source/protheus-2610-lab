@@ -34,9 +34,15 @@ def erros_do_cenario(c):
         e.append(f"'releases' so aceita {sorted(RELEASES)} (veio {rels})")
     elif len(rels) != len(set(rels)):
         e.append(f"'releases' repetida: {rels}")
-    for opcional in ("titulo", "aviso"):
+    for opcional in ("titulo", "aviso", "help"):
         if opcional in c and not isinstance(c[opcional], str):
             e.append(f"'{opcional}' deve ser texto")
+    if "visualizar" in c and not isinstance(c["visualizar"], bool):
+        e.append(f"'visualizar' deve ser true/false (veio {c['visualizar']!r})")
+    if c.get("visualizar") and c.get("help"):
+        e.append("'visualizar' e 'help' nao combinam (o Help substitui o browse)")
+    if "parametros" in c and c["parametros"] != "ok":
+        e.append(f"'parametros' so aceita \"ok\" (veio {c['parametros']!r})")
     return e
 
 
@@ -57,7 +63,7 @@ def validar(dados):
 def autoteste():
     bom = {"nome": "x", "rotina": "MATA010", "modulo": 5, "menu": ["A", "B"], "aba": "X", "releases": ["2610"]}
     assert validar({"cenarios": [bom]}) == [], "autoteste: reprovou cenario correto"
-    casos = [dict(bom, modulo="5"), dict(bom, menu=[]), dict(bom, releases=["2410"]), dict(bom, aba=""),
+    casos = [dict(bom, modulo="5"), dict(bom, menu=[]), dict(bom, releases=["2410"]), dict(bom, aba=""), dict(bom, parametros="sim"), dict(bom, visualizar="sim"), dict(bom, visualizar=True, help="RECNO"),
              {k: v for k, v in bom.items() if k != "rotina"}]
     for ruim in casos:
         assert validar({"cenarios": [ruim]}), f"autoteste: aprovou cenario invalido {ruim}"

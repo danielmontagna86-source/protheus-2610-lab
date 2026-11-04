@@ -346,6 +346,95 @@ def fechar_novidades(pagina, timeout_ms=10_000):
     return clicar_ate_sumir(pagina, "Fechar", ("*", "Novidades do Produto"))
 
 
+_JS_HELP = """(codigo) => {
+  // Help do Protheus: texto "Help: <CODIGO>" num caption (com tags HTML) visivel.
+  const norm = (s) => (s || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim().toUpperCase();
+  const alvo = ('HELP: ' + codigo).toUpperCase();
+  let achou = false;
+  const deep = (root) => root.querySelectorAll('*').forEach(e => {
+    if (achou) return;
+    const r = e.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && norm(e.getAttribute('caption')).includes(alvo)) { achou = true; return; }
+    if (e.shadowRoot) deep(e.shadowRoot);
+  });
+  deep(document);
+  return achou;
+}"""
+
+
+def help_visivel(pagina, codigo, timeout_ms=60_000):
+    """Espera o Help com o codigo informado (ex.: 'RECNO') ficar visivel. Devolve True/False."""
+    try:
+        pagina.wait_for_function(_JS_HELP, arg=codigo, timeout=timeout_ms)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def fechar_help(pagina, codigo, tentativas=5):
+    """Fecha o Help com 'Fechar' (so fecha a mensagem; nada e gravado) e confere que sumiu."""
+    for _ in range(tentativas):
+        if existe_caption(pagina, "wa-button", "Fechar", 5_000):
+            por_caption(pagina, "wa-button", "Fechar").click()
+        try:
+            pagina.wait_for_function("(c) => !(" + _JS_HELP + ")(c)", arg=codigo, timeout=5_000)
+            return True
+        except Exception:  # noqa: BLE001
+            continue
+    raise AssertionError(f"Help '{codigo}' continuou visivel apos {tentativas} cliques em 'Fechar'")
+
+
+_JS_FORM_VISUALIZAR = """() => {
+  // Formulario aberto pelo botao 'Visualizar': titulo terminado em '- VISUALIZAR' (MATA121:
+  // 'Pedido de Compra - VISUALIZAR') ou iniciado por 'Visualização de' (MATA080: 'Visualização de
+  // TES'), visivel. Devolve o titulo ou null.
+  const norm = (s) => (s || '').replace(/<[^>]+>/g, '').replace(/\\s+/g, ' ').trim();
+  let achado = null;
+  const deep = (root) => root.querySelectorAll('*').forEach(e => {
+    if (achado) return;
+    const c = norm(e.getAttribute && e.getAttribute('caption'));
+    const r = e.getBoundingClientRect ? e.getBoundingClientRect() : {width: 0, height: 0};
+    if (r.width > 0 && r.height > 0 && (/-\\s*visualizar$/i.test(c) || /^visualiza[cç][aã]o d[eoa]s? /i.test(c))) {
+      achado = c; return; }
+    if (e.shadowRoot) deep(e.shadowRoot);
+  });
+  deep(document);
+  return achado;
+}"""
+
+
+def visualizar_registro(pagina, timeout_ms=60_000):
+    """Clica em 'Visualizar' no browse (registro posicionado, o primeiro) e espera o formulario em
+    modo VISUALIZAR. Devolve o titulo do formulario. Visualizar nao grava nada."""
+    por_caption(pagina, "wa-button", "Visualizar").click()
+    return pagina.wait_for_function(_JS_FORM_VISUALIZAR, timeout=timeout_ms).json_value()
+
+
+def fechar_visualizacao(pagina, tentativas=5):
+    """Fecha o formulario de visualizacao com 'Cancelar' ou 'Fechar' (nunca 'Confirmar') e confere que
+    o titulo '- VISUALIZAR' sumiu."""
+    for _ in range(tentativas):
+        for botao in ("Cancelar", "Fechar"):
+            if existe_caption(pagina, "wa-button", botao, 3_000):
+                por_caption(pagina, "wa-button", botao).click()
+                break
+        try:
+            pagina.wait_for_function("() => !(" + _JS_FORM_VISUALIZAR + ")()", timeout=5_000)
+            return True
+        except Exception:  # noqa: BLE001
+            continue
+    raise AssertionError(f"formulario de visualizacao continuou aberto apos {tentativas} tentativas")
+
+
+def confirmar_parametros(pagina, timeout_ms=30_000):
+    """Tela 'Parametros' (Pergunte) que algumas rotinas abrem antes do browse (ex.: MATA150, MATA270,
+    MATA450, MATA455). Confirma com 'OK' SEM alterar nenhum campo: so registra as respostas padrao no
+    perfil de perguntas do usuario; nenhum dado de negocio e gravado. 'Cancelar' fecharia a rotina."""
+    if not existe_caption(pagina, "*", "Parametros", timeout_ms):
+        return False
+    return clicar_ate_sumir(pagina, "OK", ("*", "Parametros"))
+
+
 def cancelar_moedas(pagina, timeout_ms=20_000):
     """Dialogo 'Moedas' (cotacoes do dia) aparece no 1o acesso do dia a rotinas de cadastro.
     'Confirmar' GRAVA cotacoes; para manter o teste somente leitura, usa-se 'Cancelar'."""

@@ -11,13 +11,14 @@ base="${PLAB_HOME:-/opt/plab}/evidencias/$rel/cenarios-$(carimbo)"
 mkdir -p "$base"
 total=0; falhas=0; pulados=0; repeticoes=0
 
-rodar_cenario() { # pasta_evidencias arquivo_saida (usa modulo, menu, aba, titulo e aviso do laco)
+rodar_cenario() { # pasta_evidencias arquivo_saida (usa modulo, menu, aba, titulo, aviso, parametros e help do laco)
   PLAB_UI_MODULO=$modulo PLAB_UI_MENU=$menu PLAB_UI_ABA=$aba PLAB_UI_TITULO=$titulo PLAB_UI_AVISO=$aviso \
+    PLAB_UI_PARAMETROS=$parametros PLAB_UI_HELP=$ajuda PLAB_UI_VISUALIZAR=$visualizar \
     PLAB_EVID_DIR="$1" "${PLAB_HOME:-/opt/plab}/lab/bin/lib/ui.sh" "$rel" > "$2" 2>&1
 }
 
 # Separador \x1f (nao e espaco em branco): com IFS de tab o read junta campos vazios (titulo/aviso).
-while IFS=$'\x1f' read -r nome modulo menu aba titulo aviso releases; do
+while IFS=$'\x1f' read -r nome modulo menu aba titulo aviso parametros ajuda visualizar releases; do
   [ -n "$so" ] && [ "$so" != "$nome" ] && continue
   total=$((total + 1))
   case ",$releases," in *",$rel,"*) ;; *) echo "[--] $nome: nao confirmado para a $rel (pulado)"; pulados=$((pulados + 1)); continue ;; esac
@@ -35,6 +36,6 @@ while IFS=$'\x1f' read -r nome modulo menu aba titulo aviso releases; do
   linha=$(grep -E '^\[ui\] (OK|FALHOU)' "$base/$nome.out" | tail -n 1 | sed 's/^\[ui\] //')
   if grep -q '^\[ui\] OK' "$base/$nome.out"; then echo "[ok] $nome: $linha$repetido"
   else echo "[XX] $nome: ${linha:-ver $base/$nome.out}$repetido"; falhas=$((falhas + 1)); fi
-done < <(jq -r '.cenarios[] | [.nome, .modulo, (.menu|join(">")), .aba, (.titulo // ""), (.aviso // ""), (.releases|join(","))] | join("\u001f")' "$cfg")
+done < <(jq -r '.cenarios[] | [.nome, .modulo, (.menu|join(">")), .aba, (.titulo // ""), (.aviso // ""), (.parametros // ""), (.help // ""), (if .visualizar == true then "1" else "" end), (.releases|join(","))] | join("\u001f")' "$cfg")
 echo "cenarios $rel: total=$total falhas=$falhas pulados=$pulados repeticoes=$repeticoes evidencias=$base"
 [ "$falhas" -eq 0 ]

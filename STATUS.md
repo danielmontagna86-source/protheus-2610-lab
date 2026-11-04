@@ -163,6 +163,24 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   1 repetição (`2610/cenarios-20261104-014048`); `plab smoke 2510` PRONTO com o passo 5;
   `lab cenarios 2510` 6/6 (`2510/cenarios-20261104-020304`). Testes `lab/tests/` e shellcheck ok.
 
+## Cenários da fase 2 (04/11/2026)
+
+- Os 20 da proposta `docs/propostas/cenarios-fase2.md` viraram 25 entradas novas em
+  `cenarios/ui-leitura/cenarios.json` (31 no total), todas somente leitura, rodadas uma a uma nas
+  duas releases (`lab cenarios <rel> <nome>`, evidências em `evidencias/<rel>/cenarios-20261104-*`).
+- Novos recursos do runner, todos sem gravar dado de negócio: `parametros: "ok"` (confirma a tela
+  Pergunte com os valores padrão), `help` (Help esperado no lugar do browse, fechado com "Fechar")
+  e `visualizar: true` (abre o 1º registro em Visualizar, captura, fecha com Cancelar/Fechar e
+  confere a volta do browse).
+- Achados: na 2610 a Atualizar Cotações (MATA150) abre o "Comunicado Ciclo de Vida de Software"
+  (rotina descontinuada, manutenção encerrada em 30/06/2025); na 2510 não, e o cenário fica só na
+  2510. A Liberar de Documentos dá o Help A097APROV para o Admin nas duas releases. A base não tem
+  cotações, inventário nem pedidos liberados (browse vazio ou Help RECNO). O título do inventário
+  vem como "Digitaçäo" (com "ä"). O pedido de compra 000001 abre em Visualizar com os 14 itens.
+- Ficaram fora: a conferência de valores contra SQL (saldo, posição de cliente, contagem de itens)
+  e as gravações opcionais (C3, E3, F3, V5), que dependem de autorização do dono e de
+  `plab snapshot`/`restore`.
+
 ## Divulgação
 
 - 03/11/2026 (autorizado pelo dono: "já pode fazer agora no LinkedIn"), conta Daniel Montagna:
