@@ -210,6 +210,10 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   PowerShell 5.1 as aspas do `--format` sumiam, o template falhava (`function "com" not defined`) e
   todos os containers eram pulados, dando 0. Agora lê os rótulos em JSON, mostra quantos containers
   varreu e vira N/VER se não achar nenhum. Rodada nova: zero ocorrências com `containers=13`.
+- `lab licencas` (melhoria 5) fora: a porta do monitor abre o assistente de ativação do License
+  Server (TOTVS Id e token), não uma lista de licenças, e o log de hoje não registra consumo por
+  usuário. Achados de passagem (WARN a cada 10 s causado pelo healthcheck; AppServer reconectando
+  com `FAILED TO NOTIFY THREAD RELEASE`) registrados na issue #27, sem correção aplicada.
 
 ## Divulgação
 
