@@ -56,13 +56,18 @@ Limites em `PLAB_MENUS_PROFUNDIDADE` (5) e `PLAB_MENUS_TEMPO` (1200 s). Contrato
 
 ## Resultado e evidências
 
-`lab cenarios <rel>` termina com `cenarios <rel>: total=N falhas=F pulados=P` e sai com código 0
+`lab cenarios <rel>` termina com `cenarios <rel>: total=N falhas=F pulados=P repeticoes=R` e sai com código 0
 só se não houver falha. Cada cenário grava `<nome>.out` e as capturas em
 `evidencias/<rel>/cenarios-<data>/<nome>/`. As capturas limpam o formulário de login antes de
 serem tiradas, para nenhuma senha aparecer em imagem.
 
 Para acrescentar um cenário, inclua uma entrada em `ui-leitura/cenarios.json` com `releases`
 vazia, rode `lab cenarios <rel> <nome>` e só acrescente a release depois de passar.
+
+Repetição: um cenário só é refeito, uma vez e desde o login, quando a interface nova da 2610 mostra
+"Não foi possível enviar a requisição" na tela de sessão e a sessão não abre (intermitente, visto em
+03 e 04/11/2026, causa não confirmada). A linha do cenário diz que foi refeito, a 1ª tentativa fica em
+`<nome>-1a-tentativa.out` e o resumo conta `repeticoes=R`. Qualquer outra falha conta direto.
 
 ## Erros que o teste reconhece
 

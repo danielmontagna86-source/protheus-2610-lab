@@ -76,6 +76,7 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 | `plab status [alvo]` / `plab logs <alvo> [serviço]` | — | estado, URLs e logs |
 | `plab smoke <rel>` | `lab smoke <rel>` | doctor → interface somente leitura → compila LABHELLO → limpeza → PRONTO |
 | `plab restart <rel>` | — | reinicia só o AppServer e roda o doctor |
+| `plab snapshot <rel> [nome]` / `plab restore <rel> <nome>` | — | copia o volume do banco da release e volta para a cópia (a release fica parada durante a operação); `plab snapshots <rel>` lista, `plab snapshot-rm <rel> <nome>` apaga. Use antes de testes que gravam |
 | `plab setup` | `lab setup` | assistente de IA (ver abaixo) |
 | `plab scan` | — | varredura de segredos (git, imagem, container, evidências) |
 | — | `lab doctor <rel>` | DNS, porta, WebApp, `/app-root`, REST, senha |

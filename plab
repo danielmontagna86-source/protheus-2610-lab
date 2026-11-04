@@ -236,6 +236,83 @@ cmd_smoke() {
   fi
 }
 
+# Copias da base: duplicam o volume inteiro do Postgres da release (plab-<rel>_pgdata) para um
+# volume plab-<rel>_snap_<nome>, com a release parada. O cluster volta byte a byte, inclusive a
+# identidade interna do banco. Nao usar CREATE DATABASE ... TEMPLATE: em 03/11/2026 a base copiada
+# assim fez o Protheus recusar o login ("O tipo do ambiente encontrado esta invalido").
+# A copia roda num container auxiliar da propria imagem do banco, sem rede.
+ROTULO_COPIA=com.plab.snapshot
+
+volume_dados() { echo "plab-$1_pgdata"; }
+volume_copia() { echo "plab-$1_snap_$2"; }
+volume_existe() { docker volume inspect "$1" >/dev/null 2>&1; }
+
+validar_nome_copia() {
+  case "$1" in
+    "" | *[!a-z0-9_]*) sair 2 "nome invalido: '$1' (use letras minusculas, numeros e _, ate 40)" ;;
+  esac
+  [ "${#1}" -le 40 ] || sair 2 "nome invalido: mais de 40 caracteres"
+}
+
+copiar_volume() { # release origem destino limpar_destino(0|1)
+  local img="PLAB_$1_IMG_DB" cmd='cp -a /origem/. /destino/'
+  [ -n "${!img:-}" ] || sair 3 "defina $img no .env"
+  [ "$4" = 1 ] && cmd="find /destino -mindepth 1 -delete && $cmd"
+  docker run --rm --network none --entrypoint sh \
+    -v "$2:/origem:ro" -v "$3:/destino" "${!img}" -c "$cmd"
+}
+
+cmd_copia_base() { # snapshot|restore release [nome]
+  local cmd=$1 rel=${2:-} nome=${3:-} copia rc=0
+  case "$rel" in 2610|2510) ;; *) sair 2 "use: snapshot 2610|2510 [nome]  ou  restore 2610|2510 <nome>" ;; esac
+  [ "$cmd" = snapshot ] && nome=${nome:-$(date +%Y%m%d_%H%M%S)}
+  [ -n "$nome" ] || sair 2 "use: restore $rel <nome>  (copias: ./plab snapshots $rel)"
+  validar_nome_copia "$nome"
+  testar_docker
+  projeto_rodando "$rel" || sair 3 "plab-$rel parado. Rode: ./plab up $rel"
+  copia=$(volume_copia "$rel" "$nome")
+  if [ "$cmd" = snapshot ]; then
+    volume_existe "$copia" && sair 4 "ja existe a copia '$nome' (apague antes ou use outro nome)"
+  else
+    volume_existe "$copia" || sair 4 "copia '$nome' nao existe (veja: ./plab snapshots $rel)"
+  fi
+  echo "parando plab-$rel (appserver, dbaccess e banco)..."
+  compose "$rel" stop appserver dbaccess db >/dev/null 2>&1 || sair 5 "falha ao parar plab-$rel"
+  if [ "$cmd" = snapshot ]; then
+    docker volume create --label "$ROTULO_DONO=plab" --label "$ROTULO_COPIA=$rel" \
+      --label "com.plab.criada=$(date '+%d/%m/%Y %H:%M')" "$copia" >/dev/null || rc=5
+    [ "$rc" -eq 0 ] && { copiar_volume "$rel" "$(volume_dados "$rel")" "$copia" 0 || rc=5; }
+    [ "$rc" -eq 0 ] || docker volume rm "$copia" >/dev/null 2>&1 || true
+    [ "$rc" -eq 0 ] && echo "copia criada: $nome"
+  else
+    copiar_volume "$rel" "$copia" "$(volume_dados "$rel")" 1 || rc=5
+    [ "$rc" -eq 0 ] && echo "base restaurada a partir da copia: $nome"
+  fi
+  echo "religando plab-$rel..."
+  compose "$rel" up -d --wait --wait-timeout 900 >/dev/null 2>&1 || sair 5 "plab-$rel nao ficou healthy. Veja: ./plab logs $rel"
+  [ "$cmd" = restore ] && [ "$rc" -eq 0 ] && renovar_senha_admin "$rel"
+  [ "$rc" -eq 0 ] || sair "$rc" "falha na copia do volume; a release foi religada"
+  echo "plab-$rel pronto."
+}
+
+cmd_copias() { # snapshots|snapshot-rm release [nome]
+  local cmd=$1 rel=${2:-} nome=${3:-} v
+  case "$rel" in 2610|2510) ;; *) sair 2 "use: snapshots 2610|2510  ou  snapshot-rm 2610|2510 <nome>" ;; esac
+  testar_docker
+  if [ "$cmd" = snapshots ]; then
+    for v in $(docker volume ls -q --filter "label=$ROTULO_COPIA=$rel"); do
+      printf '%-30s %s\n' "${v#plab-"$rel"_snap_}" \
+        "$(docker volume inspect "$v" --format '{{index .Labels "com.plab.criada"}}')"
+    done
+    return 0
+  fi
+  [ -n "$nome" ] || sair 2 "use: snapshot-rm $rel <nome>"
+  validar_nome_copia "$nome"
+  volume_existe "$(volume_copia "$rel" "$nome")" || sair 4 "copia '$nome' nao existe"
+  docker volume rm "$(volume_copia "$rel" "$nome")" >/dev/null || sair 5 "falha ao apagar a copia '$nome'"
+  echo "copia apagada: $nome"
+}
+
 ajuda() {
   cat <<'EOF'
 plab - Protheus 2610 Lab
@@ -247,7 +324,11 @@ plab - Protheus 2610 Lab
   ./plab logs <alvo> [servico]
   ./plab smoke <2610|2510>         smoke dentro do container lab
   ./plab restart <2610|2510>       reinicia o AppServer e roda o doctor
-  ./plab setup                     assistente "lab setup"
+  ./plab snapshot <rel> [nome]     copia o volume do banco da release (para a release durante a copia)
+  ./plab snapshots <rel>           lista as copias da base
+  ./plab restore <rel> <nome>      volta a base para a copia (GRAVA no banco do lab)
+  ./plab snapshot-rm <rel> <nome>  apaga uma copia
+  ./plab setup                   assistente "lab setup"
   ./plab scan                      varredura de segredos
 EOF
 }
@@ -264,6 +345,8 @@ case "$cmd" in
           testar_docker; compose "$1" logs --tail 200 ${2:+"$2"} ;;
   smoke)  ler_env; cmd_smoke "${1:-}" ;;
   restart) ler_env; cmd_restart "${1:-}" ;;
+  snapshot|restore)        ler_env; cmd_copia_base "$cmd" "${1:-}" "${2:-}" ;;
+  snapshots|snapshot-rm)   ler_env; cmd_copias "$cmd" "${1:-}" "${2:-}" ;;
   setup)  ler_env; cmd_lab setup ;;
   scan)   exec bash "$RAIZ/lab/bin/plab-scan" ;;
   help|-h|--help) ajuda ;;

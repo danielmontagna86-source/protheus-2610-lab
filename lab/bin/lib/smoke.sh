@@ -54,7 +54,16 @@ fi
 #    PLAB_SMOKE_TIR=1 a suite TIR tambem roda, como passo informativo (nao bloqueia o PRONTO).
 PLAB_EVID_DIR="$evid/ui" "$LIB/ui.sh" "$rel" > "$evid/ui.out" 2>&1
 rc=$?
-linha=$(grep -E '^\[ui\] (OK|FALHOU)' "$evid/ui.out" | tail -n 1 | sed 's/^\[ui\] //')
+refeito=""
+# Mesma regra do 'lab cenarios': so o aviso de requisicao na tela de sessao (interface nova da
+# 2610, intermitente) justifica refazer o passo desde o login, uma vez (04/11/2026).
+if [ "$rc" -ne 0 ] && grep -q 'aviso de requisicao' "$evid/ui.out"; then
+  mv "$evid/ui.out" "$evid/ui-1a-tentativa.out"
+  PLAB_EVID_DIR="$evid/ui-repeticao" "$LIB/ui.sh" "$rel" > "$evid/ui.out" 2>&1
+  rc=$?
+  refeito=" (refeito do login apos aviso de requisicao)"
+fi
+linha=$(grep -E '^\[ui\] (OK|FALHOU)' "$evid/ui.out" | tail -n 1 | sed 's/^\[ui\] //')$refeito
 if [ "$rc" -eq 0 ]; then ok 2 interface "${linha:-ok}"
 else falhou 2 interface "rc=$rc ${linha:-ver ui.out}"; fi
 if [ "${PLAB_SMOKE_TIR:-0}" = 1 ]; then

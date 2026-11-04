@@ -1,6 +1,6 @@
 # plab.ps1 - wrapper do host para o Protheus 2610 Lab (Windows PowerShell 5.1+).
 # Contrato: specs/001-protheus-2610-lab/contracts/plab-cli.md
-# Uso: .\plab.ps1 <net|ports|up|down|status|logs|smoke|setup|scan> [alvo] [opcoes]
+# Uso: .\plab.ps1 <net|ports|up|down|status|logs|smoke|restart|snapshot|snapshots|restore|snapshot-rm|setup|scan> [alvo] [opcoes]
 
 param(
     [Parameter(Position = 0)] [string] $Comando = 'help',
@@ -288,6 +288,91 @@ function Cmd-Smoke($oEnv, [string] $cAlvo) {
     exit 0
 }
 
+# Copias da base: duplicam o volume inteiro do Postgres da release (plab-<rel>_pgdata) para um
+# volume plab-<rel>_snap_<nome>, com a release parada. Mesmo comportamento do plab (bash). O cluster
+# volta byte a byte, inclusive a identidade interna do banco. Nao usar CREATE DATABASE ... TEMPLATE:
+# em 03/11/2026 a base copiada assim fez o Protheus recusar o login ("O tipo do ambiente encontrado
+# esta invalido"). A copia roda num container auxiliar da propria imagem do banco, sem rede.
+$cRotuloCopia = 'com.plab.snapshot'
+
+function Volume-Existe([string] $cVol) {
+    & docker volume inspect $cVol *> $null
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Validar-Nome-Copia([string] $cNome) {
+    if ($cNome -notmatch '^[a-z0-9_]{1,40}$') { Sair 2 "nome invalido: '$cNome' (use letras minusculas, numeros e _, ate 40)" }
+}
+
+function Copiar-Volume($oEnv, [string] $cRel, [string] $cOrigem, [string] $cDestino, [bool] $lLimpar) {
+    $cImg = $oEnv["PLAB_${cRel}_IMG_DB"]
+    if (-not $cImg) { Sair 3 "defina PLAB_${cRel}_IMG_DB no .env" }
+    # Sem aspas duplas no comando (PowerShell 5.1 nao as escapa ao chamar programas nativos).
+    $cCmd = 'cp -a /origem/. /destino/'
+    if ($lLimpar) { $cCmd = 'find /destino -mindepth 1 -delete && ' + $cCmd }
+    & docker run --rm --network none --entrypoint sh -v "${cOrigem}:/origem:ro" -v "${cDestino}:/destino" $cImg -c $cCmd | Out-Host
+    return $LASTEXITCODE
+}
+
+function Cmd-Copia-Base($oEnv, [string] $cCmd, [string] $cRel, [string] $cNome) {
+    if ($aReleases -notcontains $cRel) { Sair 2 'use: snapshot 2610|2510 [nome]  ou  restore 2610|2510 <nome>' }
+    if ($cCmd -eq 'snapshot' -and -not $cNome) { $cNome = Get-Date -Format 'yyyyMMdd_HHmmss' }
+    if (-not $cNome) { Sair 2 "use: restore $cRel <nome>  (copias: .\plab.ps1 snapshots $cRel)" }
+    Validar-Nome-Copia $cNome
+    Testar-Docker
+    if (-not (Projeto-Rodando $cRel)) { Sair 3 "plab-$cRel parado. Rode: .\plab.ps1 up $cRel" }
+    $cDados = "plab-${cRel}_pgdata"
+    $cCopia = "plab-${cRel}_snap_$cNome"
+    if ($cCmd -eq 'snapshot') {
+        if (Volume-Existe $cCopia) { Sair 4 "ja existe a copia '$cNome' (apague antes ou use outro nome)" }
+    } elseif (-not (Volume-Existe $cCopia)) {
+        Sair 4 "copia '$cNome' nao existe (veja: .\plab.ps1 snapshots $cRel)"
+    }
+    Write-Host "parando $(Projeto $cRel) (appserver, dbaccess e banco)..."
+    if ((Compose $cRel @('stop', 'appserver', 'dbaccess', 'db')) -ne 0) { Sair 5 "falha ao parar $(Projeto $cRel)" }
+    $nRc = 0
+    if ($cCmd -eq 'snapshot') {
+        $cData = Get-Date -Format 'dd/MM/yyyy HH:mm'
+        & docker volume create --label "$cRotuloDono=plab" --label "$cRotuloCopia=$cRel" --label "com.plab.criada=$cData" $cCopia | Out-Null
+        if ($LASTEXITCODE -ne 0) { $nRc = 5 }
+        if ($nRc -eq 0 -and (Copiar-Volume $oEnv $cRel $cDados $cCopia $false) -ne 0) { $nRc = 5 }
+        if ($nRc -ne 0) { & docker volume rm $cCopia *> $null }
+        else { Write-Host "copia criada: $cNome" }
+    } else {
+        if ((Copiar-Volume $oEnv $cRel $cCopia $cDados $true) -ne 0) { $nRc = 5 }
+        else { Write-Host "base restaurada a partir da copia: $cNome" }
+    }
+    Write-Host "religando $(Projeto $cRel)..."
+    if ((Compose $cRel @('up', '-d', '--wait', '--wait-timeout', '900')) -ne 0) { Sair 5 "$(Projeto $cRel) nao ficou healthy. Veja: .\plab.ps1 logs $cRel" }
+    if ($cCmd -eq 'restore' -and $nRc -eq 0) { Renovar-Senha-Admin $cRel $oEnv }
+    if ($nRc -ne 0) { Sair $nRc 'falha na copia do volume; a release foi religada' }
+    Write-Host "$(Projeto $cRel) pronto."
+    exit 0
+}
+
+function Cmd-Copias([string] $cCmd, [string] $cRel, [string] $cNome) {
+    if ($aReleases -notcontains $cRel) { Sair 2 'use: snapshots 2610|2510  ou  snapshot-rm 2610|2510 <nome>' }
+    Testar-Docker
+    if ($cCmd -eq 'snapshots') {
+        foreach ($cVol in (& docker volume ls -q --filter "label=$cRotuloCopia=$cRel")) {
+            # Sem aspas duplas no --format: o PowerShell 5.1 as remove ao chamar o docker (o
+            # template quebrava com 'function "com" not defined', visto em 04/11/2026).
+            $oRotulos = (& docker volume inspect $cVol --format '{{json .Labels}}') | ConvertFrom-Json
+            $cData = $oRotulos.'com.plab.criada'
+            Write-Host ('{0,-30} {1}' -f ($cVol -replace "^plab-${cRel}_snap_", ''), $cData)
+        }
+        exit 0
+    }
+    if (-not $cNome) { Sair 2 "use: snapshot-rm $cRel <nome>" }
+    Validar-Nome-Copia $cNome
+    $cCopia = "plab-${cRel}_snap_$cNome"
+    if (-not (Volume-Existe $cCopia)) { Sair 4 "copia '$cNome' nao existe" }
+    & docker volume rm $cCopia | Out-Null
+    if ($LASTEXITCODE -ne 0) { Sair 5 "falha ao apagar a copia '$cNome'" }
+    Write-Host "copia apagada: $cNome"
+    exit 0
+}
+
 function Ajuda {
     @'
 plab - Protheus 2610 Lab
@@ -299,6 +384,10 @@ plab - Protheus 2610 Lab
   .\plab.ps1 logs <alvo> [servico]
   .\plab.ps1 smoke <2610|2510>         smoke dentro do container lab
   .\plab.ps1 restart <2610|2510>       reinicia o AppServer e roda o doctor
+  .\plab.ps1 snapshot <rel> [nome]     copia o volume do banco da release (para a release durante a copia)
+  .\plab.ps1 snapshots <rel>           lista as copias da base
+  .\plab.ps1 restore <rel> <nome>      volta a base para a copia (GRAVA no banco do lab)
+  .\plab.ps1 snapshot-rm <rel> <nome>  apaga uma copia
   .\plab.ps1 setup                     assistente "lab setup"
   .\plab.ps1 scan                      varredura de segredos
 '@
@@ -313,6 +402,8 @@ switch ($Comando) {
     'logs'   { Ler-Env | Out-Null; Cmd-Logs $Alvo }
     'smoke'  { Cmd-Smoke (Ler-Env) $Alvo }
     'restart' { Ler-Env | Out-Null; exit (Cmd-Restart $Alvo) }
+    { $_ -in 'snapshot', 'restore' } { Cmd-Copia-Base (Ler-Env) $Comando $Alvo $Servico }
+    { $_ -in 'snapshots', 'snapshot-rm' } { Ler-Env | Out-Null; Cmd-Copias $Comando $Alvo $Servico }
     'setup'  { Ler-Env | Out-Null; exit (Cmd-Lab @('setup') $true) }
     'scan'   { & (Join-Path $cRaiz 'lab\bin\plab-scan.ps1'); exit $LASTEXITCODE }
     default  { Ajuda; if ($Comando -ne 'help') { exit 2 } }

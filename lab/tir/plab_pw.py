@@ -225,8 +225,65 @@ def sessao(pagina, modulo, grupo="99", filial="01"):
         if campo.input_value().strip() != valor:
             raise AssertionError(f"campo {indice} da sessao nao aceitou o codigo {valor!r}")
     descricao = desc_modulo.input_value().strip()
-    cfg.get_by_role("button", name=re.compile(r"^\s*Entrar\s*$")).click()
+    entrar_sessao(pagina, cfg)
     return descricao
+
+
+AVISO_REQUISICAO = "Não foi possível enviar a requisição"
+
+# Algum wa-menu-item visivel na pagina (o menu do modulo ja foi desenhado).
+_JS_MENU_VISIVEL = """() => { let achou = false; const deep = (root) => root.querySelectorAll('*').forEach(e => {
+  if (achou) return;
+  if (e.tagName.toLowerCase() === 'wa-menu-item' && e.getBoundingClientRect().width > 0) { achou = true; return; }
+  if (e.shadowRoot) deep(e.shadowRoot); }); deep(document); return achou; }"""
+
+
+def entrar_sessao(pagina, cfg, tentativas=1, espera_ms=60_000):
+    """Clica 'Entrar' na tela de sessao e repete quando a interface nova mostra o aviso
+    'Nao foi possivel enviar a requisicao' com a tela ainda aberta. Visto na 2610 em 03 e
+    04/11/2026, de 1 a 2 sessoes em 6; causa nao confirmada. No lab, repetir o clique nunca abriu a
+    sessao (3 de 3 falharam): por isso o padrao e 1 tentativa, e quem resolve e o 'lab cenarios' ou o
+    'lab smoke', que refazem desde o login ao ver "aviso de requisicao" na saida."""
+    botao = cfg.get_by_role("button", name=re.compile(r"^\s*Entrar\s*$"))
+
+    def aviso_visivel():
+        # O aviso (po-toaster) aparece no topo da pagina, fora do iframe da sessao (visto em
+        # 04/11/2026): procura em todos os frames.
+        for frame in pagina.frames:
+            try:
+                if frame.get_by_text(AVISO_REQUISICAO).first.is_visible():
+                    return True
+            except Exception:  # noqa: BLE001  (frame desanexado durante a busca)
+                continue
+        return False
+
+    for tentativa in range(1, tentativas + 1):
+        botao.click()
+        fim = time.time() + espera_ms / 1000.0
+        while time.time() < fim:
+            try:
+                # Sucesso = o menu do WebApp apareceu (ou o iframe da sessao saiu). Nao basta o botao
+                # sumir: durante o envio ele vira "Carregando..." e volta a "Entrar" junto com o
+                # aviso (04/11/2026). O iframe da sessao nao e removido no sucesso: esperar por isso
+                # custava o prazo inteiro em todo login.
+                if cfg.is_detached() or pagina.evaluate(_JS_MENU_VISIVEL):
+                    return
+                if aviso_visivel() and botao.is_visible():
+                    break
+            except Exception:  # noqa: BLE001  (frame trocando ou desanexado: a sessao abriu)
+                return
+            pagina.wait_for_timeout(500)
+        else:
+            return  # sem aviso no prazo: quem chamou confere o menu
+        print(f"[ui] aviso de requisicao na tela de sessao (tentativa {tentativa} de {tentativas}): "
+              f"'{AVISO_REQUISICAO}'", flush=True)
+        if tentativa == tentativas:
+            return
+        # Espera o aviso sumir: senao a proxima tentativa veria o aviso antigo e desistiria na hora.
+        fim_aviso = time.time() + 10
+        while aviso_visivel() and time.time() < fim_aviso:
+            pagina.wait_for_timeout(500)
+        pagina.wait_for_timeout(1_000)
 
 
 def modulo_no_menu(pagina, nome, timeout_ms=60_000):

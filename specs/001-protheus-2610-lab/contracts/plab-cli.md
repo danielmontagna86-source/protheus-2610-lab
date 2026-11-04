@@ -11,6 +11,10 @@ plab status [alvo]            # estado por serviço + URLs locais
 plab logs <2610|2510|lab> [serviço]
 plab smoke <2610|2510>        # "lab smoke <release>" no container lab (+ passo 5 de recuperação)
 plab restart <2610|2510>      # reinicia só o AppServer, espera healthy e roda o doctor
+plab snapshot <rel> [nome]    # copia o volume do Postgres da release para plab-<rel>_snap_<nome>
+plab snapshots <rel>          # lista as cópias (nome, tamanho, data)
+plab restore <rel> <nome>     # volta a base para a cópia (grava no banco do lab)
+plab snapshot-rm <rel> <nome> # apaga uma cópia
 plab setup                    # abre "lab setup" interativo no container lab
 plab scan                     # varredura de segredos (git, imagem, container lab, docker logs, evidências)
 plab ports                    # mostra portas configuradas e se estão livres
@@ -34,6 +38,17 @@ plab ports                    # mostra portas configuradas e se estão livres
   `/opt/plab/skills` somente leitura. Ausente, vazio ou `0`: só `lab/compose.yaml` (padrão, código
   da imagem). As releases ignoram a variável. Vale no `up` seguinte (o container é recriado).
 - `down --volumes` só afeta o project da release pedida (SC-002).
+- `snapshot`/`restore`/`snapshots`/`snapshot-rm` (emenda de 03/11/2026): copiam o volume inteiro do
+  Postgres da release (`plab-<rel>_pgdata`) para um volume `plab-<rel>_snap_<nome>` (labels
+  `com.plab.owner=plab`, `com.plab.snapshot=<rel>`, `com.plab.criada`) e de volta, com
+  AppServer, DBAccess e banco parados, num container auxiliar da imagem do banco sem rede. O cluster
+  volta byte a byte. Não usar `CREATE DATABASE ... TEMPLATE`: em 03/11/2026 a base copiada assim fez
+  o Protheus recusar o login ("O tipo do ambiente encontrado está inválido") e a 2610 precisou ser
+  recriada. Nome: `a-z`, `0-9` e `_`, até 40; sem nome, o `snapshot` usa data e hora. Nome e
+  existência são conferidos antes de parar a release. As cópias sobrevivem a `down --volumes`
+  (são volumes à parte) e ocupam o tamanho do volume de dados. Depois de um `restore`, a release em
+  `PLAB_RENOVAR_SENHA_ADMIN` tem a data da senha renovada. Códigos: 2 nome inválido, 3 release
+  parada, 4 cópia inexistente ou repetida, 5 falha na cópia ou na volta da stack.
 - Código de saída: 0 sucesso; 2 uso incorreto; 3 pré-requisito ausente (Docker, `.env`, container
   lab parado); 4 porta ocupada; 5 serviço não ficou healthy (inclui `restart`); 10+n falha no passo
   n do smoke (ver smoke-report); 15 falha no passo 5 (recuperação) do `plab smoke`.
