@@ -225,8 +225,36 @@ def sessao(pagina, modulo, grupo="99", filial="01"):
         if campo.input_value().strip() != valor:
             raise AssertionError(f"campo {indice} da sessao nao aceitou o codigo {valor!r}")
     descricao = desc_modulo.input_value().strip()
-    cfg.get_by_role("button", name=re.compile(r"^\s*Entrar\s*$")).click()
+    entrar_sessao(pagina, cfg)
     return descricao
+
+
+AVISO_REQUISICAO = "Não foi possível enviar a requisição"
+
+
+def entrar_sessao(pagina, cfg, tentativas=3, espera_ms=20_000):
+    """Clica 'Entrar' na tela de sessao e repete quando a interface nova mostra o aviso
+    'Nao foi possivel enviar a requisicao' com a tela ainda aberta. Visto na 2610 em 03/11/2026,
+    cerca de 1 sessao em 6, so depois das 21h (o relogio do lab, em UTC, ja estava no dia 04):
+    causa nao confirmada. Repetir o clique e so leitura: a sessao ainda nao abriu."""
+    botao = cfg.get_by_role("button", name=re.compile(r"^\s*Entrar\s*$"))
+    aviso = cfg.get_by_text(AVISO_REQUISICAO)
+    for tentativa in range(1, tentativas + 1):
+        botao.click()
+        fim = time.time() + espera_ms / 1000.0
+        while time.time() < fim:
+            try:
+                if not botao.is_visible():
+                    return  # a tela de sessao saiu: segue para o menu
+                if aviso.first.is_visible():
+                    break
+            except Exception:  # noqa: BLE001  (frame trocando ou desanexado: a sessao abriu)
+                return
+            pagina.wait_for_timeout(500)
+        else:
+            return  # sem aviso no prazo: quem chamou confere o menu
+        print(f"[ui] aviso '{AVISO_REQUISICAO}' na tentativa {tentativa}; repetindo Entrar", flush=True)
+        pagina.wait_for_timeout(3_000)
 
 
 def modulo_no_menu(pagina, nome, timeout_ms=60_000):
