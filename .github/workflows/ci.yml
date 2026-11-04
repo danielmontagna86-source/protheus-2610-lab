@@ -64,18 +64,22 @@ jobs:
         run: |
           bash lab/tests/test_semear_volume.sh
           bash lab/tests/test_plab_env.sh
+          bash lab/tests/test_plab_lab_dev.sh
           bash lab/tests/test_smoke_limpeza.sh
           bash lab/tests/test_compile_entradas.sh
           bash lab/tests/test_setup_estados.sh
           bash lab/tests/test_segredos_tmp.sh
           bash lab/tests/test_templates_marcadores.sh
 
-      - name: compose config (2610, 2510, lab)
+      - name: compose config (2610, 2510, lab e override dev)
         run: |
           cp .env.example .env
           for f in stacks/2610/compose.yaml stacks/2510/compose.yaml lab/compose.yaml; do
             docker compose --env-file .env -f "$f" config --quiet && echo "ok $f"
           done
+          # override do modo desenvolvimento (PLAB_LAB_DEV=1): monta lab/, cenarios/ e skills/ ro
+          docker compose --env-file .env -f lab/compose.yaml -f lab/compose.dev.yaml config --format json \
+            | python -c "import json,sys; v=[(m['target'],m.get('read_only',False)) for m in json.load(sys.stdin)['services']['lab']['volumes']]; e=[(d,True) for d in ('/opt/plab/lab','/opt/plab/cenarios','/opt/plab/skills')]; assert all(x in v for x in e), v; print('ok lab/compose.dev.yaml')"
 
       - name: gitleaks (historico completo)
         run: |

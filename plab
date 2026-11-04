@@ -46,7 +46,16 @@ arquivo_compose() {
   esac
 }
 
-compose() { local alvo=$1; shift; docker compose --env-file "$RAIZ/.env" -f "$(arquivo_compose "$alvo")" "$@"; }
+# Argumentos do docker compose do alvo em ARGS_COMPOSE. No lab, PLAB_LAB_DEV=1 (lido do .env por
+# ler_env) soma o lab/compose.dev.yaml: codigo do repositorio montado somente leitura em /opt/plab.
+args_compose() {
+  ARGS_COMPOSE=(--env-file "$RAIZ/.env" -f "$(arquivo_compose "$1")")
+  if [ "$1" = lab ] && [ "${PLAB_LAB_DEV:-}" = 1 ]; then
+    ARGS_COMPOSE+=(-f "$RAIZ/lab/compose.dev.yaml")
+  fi
+}
+
+compose() { local alvo=$1; shift; args_compose "$alvo"; docker compose "${ARGS_COMPOSE[@]}" "$@"; }
 
 # Valida no shell principal: um 'exit' dentro de $(...) so encerraria o subshell.
 validar_alvo() {
@@ -187,7 +196,7 @@ cmd_lab() {
   projeto_rodando lab || sair 3 "container lab parado. Rode: ./plab up lab"
   # -T (sem TTY) quando nao ha terminal; o setup interativo precisa de TTY.
   local tty=(-T); [ -t 0 ] && [ "${1:-}" = setup ] && tty=()
-  docker compose --env-file "$RAIZ/.env" -f "$(arquivo_compose lab)" exec "${tty[@]}" lab lab "$@"
+  compose lab exec "${tty[@]}" lab lab "$@"
 }
 
 esperar_healthy() { # alvo servico segundos

@@ -16,6 +16,7 @@ $cRaiz = $PSScriptRoot
 $cRede = 'plab'
 $cRotuloDono = 'com.plab.owner'
 $aReleases = @('2610', '2510')
+$lLabDev = $false  # PLAB_LAB_DEV=1 no .env (Ler-Env) liga o modo desenvolvimento do lab
 
 function Sair([int] $nCodigo, [string] $cMsg) {
     if ($cMsg) { [Console]::Error.WriteLine("plab: $cMsg") }
@@ -39,6 +40,8 @@ function Ler-Env {
             $oEnv[$cChave] = $cValor
         }
     }
+    # PLAB_LAB_DEV=1: o compose do lab soma lab\compose.dev.yaml (ver Args-Compose).
+    $script:lLabDev = ($oEnv['PLAB_LAB_DEV'] -eq '1')
     return $oEnv
 }
 
@@ -58,9 +61,17 @@ function Arquivo-Compose([string] $cAlvo) {
 
 function Projeto([string] $cAlvo) { return "plab-$cAlvo" }
 
+# Argumentos do "docker compose" do alvo. No lab, PLAB_LAB_DEV=1 no .env soma lab\compose.dev.yaml:
+# codigo do repositorio montado somente leitura em /opt/plab (sem rebuild da imagem).
+function Args-Compose([string] $cAlvo) {
+    $aArgs = @('compose', '--env-file', (Join-Path $cRaiz '.env'), '-f', (Arquivo-Compose $cAlvo))
+    if ($cAlvo -eq 'lab' -and $script:lLabDev) { $aArgs += @('-f', (Join-Path $cRaiz 'lab\compose.dev.yaml')) }
+    return ,$aArgs
+}
+
 function Compose([string] $cAlvo, [string[]] $aArgs) {
-    $cArq = Arquivo-Compose $cAlvo
-    & docker compose --env-file (Join-Path $cRaiz '.env') -f $cArq @aArgs | Out-Host
+    $aBase = Args-Compose $cAlvo
+    & docker @aBase @aArgs | Out-Host
     return $LASTEXITCODE
 }
 
@@ -154,8 +165,7 @@ function Renovar-Senha-Admin {
     $cLista = if ($oEnv.ContainsKey('PLAB_RENOVAR_SENHA_ADMIN')) { $oEnv['PLAB_RENOVAR_SENHA_ADMIN'] } else { '2510' }
     if (($cLista -split '[,\s]+') -notcontains $cAlvo) { return }
     $cSql = Join-Path $cRaiz 'stacks\sql\renova-senha-admin.sql'
-    $cArq = Arquivo-Compose $cAlvo
-    $aBase = @('compose', '--env-file', (Join-Path $cRaiz '.env'), '-f', $cArq)
+    $aBase = Args-Compose $cAlvo
     $OutputEncoding = New-Object System.Text.UTF8Encoding $false
     # Sem aspas duplas no comando: o PowerShell 5.1 nao as escapa ao chamar programas nativos.
     # O PowerShell 5.1 poe um BOM no texto enviado a programas nativos (verificado em 03/11/2026,
@@ -222,11 +232,12 @@ function Cmd-Lab([string[]] $aArgs, [bool] $lInterativo = $false) {
     Testar-Docker
     if (-not (Projeto-Rodando 'lab')) { Sair 3 "container lab parado. Rode: .\plab.ps1 up lab" }
     # -T (sem TTY) para comandos nao interativos; o setup precisa de terminal.
-    $aBase = @('compose', '--env-file', (Join-Path $cRaiz '.env'), '-f', (Arquivo-Compose 'lab'), 'exec')
+    $aCompose = Args-Compose 'lab'
+    $aBase = $aCompose + @('exec')
     if ($lInterativo -and -not [Console]::IsInputRedirected) {
         # "docker exec -it" direto no container: pelo "docker compose exec" chamado de dentro do
         # PowerShell 5.1 o terminal interativo nao chega ao container (verificado em 02/11/2026).
-        $cId = & docker @($aBase[0..4]) ps -q lab
+        $cId = & docker @aCompose ps -q lab
         & docker exec -it $cId lab @aArgs
     } else {
         & docker @aBase -T lab lab @aArgs | Out-Host
@@ -235,7 +246,8 @@ function Cmd-Lab([string[]] $aArgs, [bool] $lInterativo = $false) {
 }
 
 function Esperar-Healthy([string] $cAlvo, [string] $cServico, [int] $nSegundos = 600) {
-    $cId = & docker compose --env-file (Join-Path $cRaiz '.env') -f (Arquivo-Compose $cAlvo) ps -q $cServico
+    $aBase = Args-Compose $cAlvo
+    $cId = & docker @aBase ps -q $cServico
     $dFim = (Get-Date).AddSeconds($nSegundos)
     while ((Get-Date) -lt $dFim) {
         $cSaude = & docker inspect $cId --format '{{.State.Health.Status}}' 2>$null

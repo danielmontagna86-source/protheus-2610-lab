@@ -90,6 +90,32 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 Códigos de saída: 0 ok; 2 uso inválido; 3 Docker ou `.env` ausente; 4 porta ocupada; 5 serviço
 não ficou healthy; 10+n falha no passo n do smoke; 15 falha no reinício após compilar.
 
+### Desenvolvimento do lab (`PLAB_LAB_DEV`)
+
+Por padrão o código de `lab/`, `cenarios/` e `skills/` vai **copiado na imagem** `plab-lab:local`:
+cada correção exige reconstruir a imagem. Para desenvolver o próprio lab, ligue o modo
+desenvolvimento no `.env`:
+
+```text
+PLAB_LAB_DEV=1
+```
+
+e suba de novo o container (`plab up lab` ou `.\plab.ps1 up lab`). O `plab` soma o override
+`lab/compose.dev.yaml`, que monta as pastas do repositório por cima da cópia da imagem, **somente
+leitura**: `lab/` → `/opt/plab/lab`, `cenarios/` → `/opt/plab/cenarios`, `skills/` →
+`/opt/plab/skills`. A correção vale no próximo comando, sem rebuild nem `docker cp`. Só `up` recria o
+container: depois de mudar a variável, rode `plab up lab` de novo. `PLAB_LAB_DEV=0` (ou vazio) volta
+ao padrão. Conferir:
+
+```bash
+docker exec plab-lab-lab-1 sh -c 'mount | grep /opt/plab'
+```
+
+Com o modo ligado aparecem `/opt/plab/lab`, `/opt/plab/cenarios` e `/opt/plab/skills` com `ro`;
+sem ele, só `/opt/plab/evidencias` e `/opt/plab-includes`. Mudanças no `lab/Dockerfile` (ferramentas
+e versões) e em `templates/` continuam exigindo rebuild. Sem o wrapper:
+`docker compose --env-file .env -f lab/compose.yaml -f lab/compose.dev.yaml up -d`.
+
 ## Assistente de IA (`plab setup`)
 
 Roda dentro do container `lab` e precisa de terminal interativo:
