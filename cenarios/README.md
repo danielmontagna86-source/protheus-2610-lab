@@ -1,16 +1,18 @@
 # Cenários
 
-Todos rodam dentro do container `lab`. Os de interface são **somente leitura**: entram, abrem a
+Todos rodam dentro do container `lab`. Os de interface de `ui-smoke/` e `ui-leitura/` são **somente leitura**: entram, abrem a
 rotina padrão, conferem o browse e saem pelo "Log Off → Finalizar". Nada é gravado: "Moedas" usa
 Cancelar, "Novidades do Produto" usa Fechar e o aviso MV_1DUP da base é fechado com Esc.
 A tela "Parametros" (Pergunte), quando o cenário pede, é confirmada com OK sem alterar nenhum
 campo: isso só guarda as respostas padrão no perfil de perguntas do usuário, nenhum dado de negócio.
+Os de `ui-gravacao/` são a exceção: gravam no banco do lab e só rodam com autorização e cópia da base.
 
 | Pasta | O que é | Comando |
 |---|---|---|
 | `hello/` | `LABHELLO.prw` (CP1252 + CRLF) para provar a compilação | `lab compile <rel> /opt/plab/cenarios/hello/LABHELLO.prw` |
 | `ui-smoke/` | smoke de interface (Playwright): MATA010 | `lab ui <rel>` |
 | `ui-leitura/` | 31 cenários de leitura em `cenarios.json` | `lab cenarios <rel> [nome]` |
+| `ui-gravacao/` | 4 cenários que **gravam** e revertem (inclui e exclui um registro de teste) | `lab gravacoes <rel> [nome]` (ver `ui-gravacao/README.md`) |
 | `tir-smoke/` | a mesma MATA010 em TIR (bloqueada no WebApp 26, totvs/tir#2169) | `lab tir <rel> /opt/plab/cenarios/tir-smoke/SMOKETESTSUITE.py` |
 
 ## Cenários de leitura
