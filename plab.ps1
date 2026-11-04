@@ -14,6 +14,7 @@ param(
 $ErrorActionPreference = 'Continue'
 $cRaiz = $PSScriptRoot
 $cRede = 'plab'
+$cRotuloDono = 'com.plab.owner'
 $aReleases = @('2610', '2510')
 
 function Sair([int] $nCodigo, [string] $cMsg) {
@@ -26,10 +27,16 @@ function Ler-Env {
     if (-not (Test-Path -LiteralPath $cArq)) {
         Sair 3 "arquivo .env ausente. Copie .env.example para .env e preencha as senhas."
     }
+    # Mesmas regras do plab (bash): "export " opcional, aspas simples ou duplas sem expansao e
+    # comentario inline (" #") em valor sem aspas.
     $oEnv = @{}
     foreach ($cLinha in Get-Content -LiteralPath $cArq) {
-        if ($cLinha -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
-            $oEnv[$Matches[1]] = $Matches[2].Trim().Trim('"').Trim("'")
+        if ($cLinha -match '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+            $cChave = $Matches[1]; $cValor = $Matches[2]
+            if ($cValor -match '^"([^"]*)"' -or $cValor -match "^'([^']*)'") { $cValor = $Matches[1] }
+            elseif ($cValor -match '^#') { $cValor = '' }
+            else { $cValor = ($cValor -replace '\s#.*$', '').Trim() }
+            $oEnv[$cChave] = $cValor
         }
     }
     return $oEnv
@@ -64,15 +71,31 @@ function Alvos([string] $cAlvo) {
     return @($cAlvo)
 }
 
+# A rede e criada com o label com.plab.owner=plab e uma rede "plab" sem ele nao e reutilizada
+# (Principio IV). Excecao: rede de versao anterior do plab (sem label) em que todos os containers
+# ligados sao dos projetos plab-*; segue com aviso para recriar quando puder.
+# Sem aspas duplas nos templates do docker: o PowerShell 5.1 nao as escapa ao chamar programas nativos.
 function Garantir-Rede {
     & docker network inspect $cRede *> $null
     if ($LASTEXITCODE -ne 0) {
-        & docker network create $cRede | Out-Null
+        & docker network create --label "$cRotuloDono=plab" $cRede | Out-Null
         if ($LASTEXITCODE -ne 0) { Sair 3 "falha ao criar a rede $cRede" }
         Write-Host "rede $cRede criada"
-    } else {
-        Write-Host "rede $cRede ja existe"
+        return
     }
+    $oRotulos = (& docker network inspect $cRede --format '{{json .Labels}}' 2>$null) | ConvertFrom-Json
+    if ($oRotulos -and $oRotulos.$cRotuloDono -eq 'plab') { Write-Host "rede $cRede ja existe"; return }
+    $aProjetos = @(& docker ps -a --filter "network=$cRede" --format '{{.Labels}}' 2>$null | ForEach-Object {
+        if ($_ -match '(^|,)com\.docker\.compose\.project=([^,]*)') { $Matches[2] } else { '' }
+    } | Sort-Object -Unique)
+    $aEstranhos = @($aProjetos | Where-Object { $_ -notmatch '^plab-(2610|2510|lab)$' })
+    if ($aProjetos.Count -gt 0 -and $aEstranhos.Count -eq 0) {
+        Write-Warning ("a rede $cRede nao tem o label $cRotuloDono=plab (criada por versao anterior do plab). " +
+            "Para recriar: .\plab.ps1 down all; docker network rm $cRede; .\plab.ps1 net")
+        return
+    }
+    Sair 3 ("ja existe uma rede '$cRede' sem o label $cRotuloDono=plab, que o plab nao reutiliza. " +
+        "Se for de outro projeto, renomeie a dele; se for de uma versao anterior do lab: docker network rm $cRede")
 }
 
 function Portas-Do-Alvo($oEnv, [string] $cAlvo) {

@@ -1,6 +1,6 @@
 # STATUS — Protheus 2610 Lab
 
-Última atualização: 2026-11-03 (divulgação no LinkedIn)
+Última atualização: 2026-11-03 (correções L1–L9 da revisão em PR)
 
 ## Fase atual
 
@@ -85,7 +85,11 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 
 ## Em andamento
 
-- Revisão independente: L1–L12 (baixos).
+- Revisão independente: L1–L9 (issues #6–#14) corrigidos em PR, um commit por issue, aguardando
+  validação do dono no lab (`plab up`, `plab smoke` e `lab cenarios` nas duas releases). Situação
+  de cada item em `docs/revisao/RESOLUCAO-2026-11-03.md`. Validado sem container: `shellcheck`
+  0.11.0, `bash -n`, `docker compose config` e 7 testes locais novos em `lab/tests/` (no CI).
+  Fora do PR: o laço "Enter vazio → repetir ou pular" do `segredo_ler` (L6).
 - Compilação na 2510 do zero exige trocar a senha do Admin por uma sem `$`.
 
 ## Pendências

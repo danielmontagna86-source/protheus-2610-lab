@@ -24,8 +24,9 @@ url_webapp() { printf 'http://%s:%s/webapp/' "$(host_release "$1")" "$PLAB_PORT_
 
 # Senha do Admin: lida do secret montado pelo compose, nunca de argumento.
 # Imprime em stdout para ser capturada em variavel; nunca registrar em log.
+# PLAB_SECRETS_DIR existe so para os testes locais (lab/tests); no lab e sempre /run/secrets.
 senha_admin() {
-  local arq="/run/secrets/plab_${1}_admin_password"
+  local arq="${PLAB_SECRETS_DIR:-/run/secrets}/plab_${1}_admin_password"
   if [ -r "$arq" ] && [ -s "$arq" ]; then tr -d '\r\n' < "$arq"; return 0; fi
   erro "senha do Admin da $1 ausente: preencha PLAB_${1}_ADMIN_PASSWORD no .env do host e recrie o lab"
   return 3

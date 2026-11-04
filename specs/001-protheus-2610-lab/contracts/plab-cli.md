@@ -24,6 +24,9 @@ plab ports                    # mostra portas configuradas e se estão livres
 - `up` recusa subir se alguma porta configurada estiver ocupada por outro processo (FR-004). O
   `plab.ps1` mostra o processo dono; o `plab` bash mostra só a porta.
 - `up lab` cria `workspace/` e `evidencias/` antes de subir.
+- `net`/`up` criam a rede `plab` com o label `com.plab.owner=plab`. Uma rede `plab` sem o label
+  não é reutilizada (código 3), exceto a de versão anterior do plab em que todos os containers
+  ligados são dos projetos `plab-*`: segue com aviso para recriar (emenda de 03/11/2026, L2).
 - `up` de release em `PLAB_RENOVAR_SENHA_ADMIN` renova a data da última troca de senha do Admin.
 - `down --volumes` só afeta o project da release pedida (SC-002).
 - Código de saída: 0 sucesso; 2 uso incorreto; 3 pré-requisito ausente (Docker, `.env`, container

@@ -29,7 +29,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
             koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
-            -x -s bash plab lab/bin/lab lab/bin/plab-scan lab/bin/lib/*.sh lab/tests/*.sh stacks/2510/entrypoint-lab.sh \
+            -x -s bash plab lab/bin/lab lab/bin/plab-scan lab/bin/lib/*.sh lab/tests/*.sh stacks/2510/entrypoint-lab.sh stacks/semear-volume.sh \
             lab/setup/lib/*.sh lab/setup/providers/*.sh
           docker run --rm -v "$PWD:/mnt:ro" -w /mnt/lab/setup \
             koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
@@ -38,7 +38,7 @@ jobs:
       - name: scripts versionados como executaveis (100755)
         run: |
           ruins=$(git ls-files -s -- plab lab/bin/lab lab/bin/plab-scan 'lab/bin/lib/*.sh' 'lab/setup/*.sh' \
-            'lab/setup/lib/*.sh' 'lab/setup/providers/*.sh' 'lab/tests/*.sh' stacks/2510/entrypoint-lab.sh \
+            'lab/setup/lib/*.sh' 'lab/setup/providers/*.sh' 'lab/tests/*.sh' stacks/2510/entrypoint-lab.sh stacks/semear-volume.sh \
             | awk '$1 != "100755" {print $4}')
           if [ -n "$ruins" ]; then echo "sem bit executavel no git:"; echo "$ruins"; exit 1; fi
 
@@ -50,6 +50,16 @@ jobs:
 
       - name: fontes AdvPL em CP1252 + CRLF
         run: bash lab/tests/test_encoding.sh "$PWD"
+
+      - name: testes locais (sem container)
+        run: |
+          bash lab/tests/test_semear_volume.sh
+          bash lab/tests/test_plab_env.sh
+          bash lab/tests/test_smoke_limpeza.sh
+          bash lab/tests/test_compile_entradas.sh
+          bash lab/tests/test_setup_estados.sh
+          bash lab/tests/test_segredos_tmp.sh
+          bash lab/tests/test_templates_marcadores.sh
 
       - name: compose config (2610, 2510, lab)
         run: |

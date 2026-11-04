@@ -42,9 +42,11 @@ Compila no **ambiente de compilação** da release (`PLAB_<release>_ENV_COMPILA`
 ## Saída e códigos
 
 - Linha final `resumo compile <release>/<ambiente>: fontes=N SUCCESS=N WARN=N ERROR=N FATAL=N`.
-- `0` ok; `2` uso; `3` senha ausente; `4` includes ausentes; `20` compilação inválida;
-  `21` RPO em uso; `22` senha com `$` (o `advpls cli` trava com `$` no `psw` — troque a senha do
-  usuário por uma sem `$`; não tente escapar).
+- `0` ok; `2` uso (inclui nome de fonte com vírgula ou espaço e dois fontes com o mesmo nome,
+  mesmo em pastas diferentes ou só com caixa diferente); `3` senha ausente; `4` includes ausentes;
+  `20` compilação inválida; `21` RPO em uso; `22` senha com `$` (o `advpls cli` trava com `$` no
+  `psw` — troque a senha do usuário por uma sem `$`; não tente escapar); `23` usuário ou senha com
+  caractere fora do CP1252 (o script do `advpls` é gravado em CP1252).
 
 ## Limites conhecidos (verificados em 02/11/2026)
 

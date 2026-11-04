@@ -17,8 +17,10 @@ services:
   db:
     image: ${PLAB_2610_IMG_DB:?defina PLAB_2610_IMG_DB no .env}
     platform: linux/amd64
-    user: root
-    restart: unless-stopped
+    # Sem "user": a imagem nao define USER e o entrypoint oficial do Postgres (docker-entrypoint.sh)
+    # roda como root so para ajustar o dono do PGDATA e passa para o usuario postgres (gosu) antes de
+    # iniciar o servidor. O "user: root" que havia aqui era o proprio padrao da imagem.
+    restart: ${PLAB_RESTART:-unless-stopped}
     ports:
       - "127.0.0.1:${PLAB_2610_PORT_DB:-26432}:5432"
     volumes:
@@ -40,7 +42,7 @@ services:
   license:
     image: ${PLAB_2610_IMG_LICENSE:?defina PLAB_2610_IMG_LICENSE no .env}
     platform: linux/amd64
-    restart: unless-stopped
+    restart: ${PLAB_RESTART:-unless-stopped}
     ports:
       - "127.0.0.1:${PLAB_2610_PORT_LICMON:-26020}:8020"
     ulimits: *ulimits
@@ -62,7 +64,7 @@ services:
   dbaccess:
     image: ${PLAB_2610_IMG_DBACCESS:?defina PLAB_2610_IMG_DBACCESS no .env}
     platform: linux/amd64
-    restart: unless-stopped
+    restart: ${PLAB_RESTART:-unless-stopped}
     ulimits: *ulimits
     depends_on:
       db: {condition: service_healthy}
@@ -85,6 +87,7 @@ services:
   # O appserver.ini da imagem aponta P2610_COMPILA para /protheus12/P2610_COMPILA/APO0002, mas o
   # AppServer Linux converte caminhos para minusculas e procura /protheus12/p2610_compila/apo0002
   # (log: "Open APO failed"). Este servico roda uma vez e semeia o volume no caminho minusculo.
+  # Sentinela .plab-seeded gravada so depois da copia completa (ver stacks/semear-volume.sh).
   rpo-init:
     image: ${PLAB_2610_IMG_APPSERVER:?defina PLAB_2610_IMG_APPSERVER no .env}
     platform: linux/amd64
@@ -93,24 +96,18 @@ services:
     command:
       - |
         set -e
-        d=/dst/apo0002
-        if [ ! -f "$$d/tttm120.rpo" ]; then
-          mkdir -p "$$d"
-          cp -a /protheus12/P2610_COMPILA/APO0002/. "$$d/"
-          echo "rpo-init: RPO de compilacao semeado em p2610_compila/apo0002"
-        else
-          echo "rpo-init: RPO de compilacao ja existe, nada a fazer"
-        fi
-        ls -la "$$d"
+        bash /plab/semear-volume.sh /protheus12/P2610_COMPILA/APO0002 /dst/apo0002 tttm120.rpo rpo-init
+        ls -la /dst/apo0002
     volumes:
       - rpo-compila:/dst
+      - ../semear-volume.sh:/plab/semear-volume.sh:ro
     logging: *logging
     network_mode: none
 
   appserver:
     image: ${PLAB_2610_IMG_APPSERVER:?defina PLAB_2610_IMG_APPSERVER no .env}
     platform: linux/amd64
-    restart: unless-stopped
+    restart: ${PLAB_RESTART:-unless-stopped}
     environment:
       - APPSERVER_DATABASE=POSTGRES
     ports:

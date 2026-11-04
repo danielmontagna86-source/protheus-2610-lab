@@ -70,7 +70,7 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 
 | Host | Dentro do container lab | O que faz |
 |---|---|---|
-| `plab net` | — | cria a rede `plab` (idempotente) |
+| `plab net` | — | cria a rede `plab` com o label `com.plab.owner=plab` (idempotente); recusa uma rede `plab` de outro projeto |
 | `plab ports` | — | portas configuradas e se estão livres |
 | `plab up <alvo>` / `plab down <alvo> [--volumes]` | — | sobe (aguarda healthy) ou derruba `2610`, `2510`, `lab` ou `all` |
 | `plab status [alvo]` / `plab logs <alvo> [serviço]` | — | estado, URLs e logs |
@@ -137,6 +137,12 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 - **Sem privilégios extras.** Login e menu funcionam sem `/dev/mem`; o log `Can't read memory
   from /dev/mem` é só ruído. Se o License Server recusar licenças, há o override opcional
   `stacks/override/devmem.yaml`.
+- **Container lab endurecido.** Roda como `lab` (uid 1000) com `cap_drop: [ALL]` e
+  `no-new-privileges`; o Chrome usa `--no-sandbox` por isso. O `db` das releases não força
+  usuário: o entrypoint oficial do Postgres ajusta o `PGDATA` como root e inicia o servidor como
+  `postgres`.
+- **Reinício automático.** `PLAB_RESTART` no `.env` (padrão `unless-stopped`). Com `no`, as stacks
+  só sobem com `plab up` e não voltam sozinhas quando o Docker inicia.
 - **Senha do Admin da 2510.** A base foi publicada com a última troca em 12/10/2025. Passado o
   prazo da política, o login exige troca obrigatória. O `plab up` aplica
   `stacks/sql/renova-senha-admin.sql`, que atualiza só a **data** da última troca, nunca a senha,
@@ -197,6 +203,8 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 | Login pede "Alterar senha" | prazo da política vencido | `plab up <rel>` renova a data |
 | `lab compile` código 21 | RPO em uso (COMPILEERROR-300) | feche as sessões do ambiente de compilação |
 | `lab compile` código 22 | senha com `$` | ver Problemas conhecidos, item 2 |
+| `lab compile` código 23 | senha com caractere fora do CP1252 | troque a senha do Admin por uma só com caracteres CP1252 |
+| `lab compile` código 2 com "mesmo nome" ou "virgula ou espaco" | dois fontes com o mesmo nome ou nome atípico | renomeie o fonte; o RPO guarda um fonte por nome |
 | `lab compile` com `C2090 File not found PRTOPDEF.CH` | volume de includes vazio | `plab up lab` (o `includes-init` semeia) |
 
 ## Marcas e afiliação

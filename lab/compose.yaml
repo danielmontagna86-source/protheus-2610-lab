@@ -9,6 +9,7 @@ services:
   # proprio usuario. O pre-compilador do advpls roda NO CONTAINER LAB (Linux, sensivel a caixa)
   # e pede PRTOPDEF.CH em maiusculas, entao cada arquivo ganha tambem um link em maiusculas.
   # Verificado em 2026-11-02: sem os links, "Error C2090 File not found PRTOPDEF.CH".
+  # Sentinela .plab-seeded gravada so depois da copia completa (ver stacks/semear-volume.sh).
   includes-init:
     image: ${PLAB_2610_IMG_APPSERVER:?defina PLAB_2610_IMG_APPSERVER no .env}
     platform: linux/amd64
@@ -17,10 +18,7 @@ services:
     command:
       - |
         set -e
-        src=/protheus12/bin/appserver_deskflow/includes
-        if [ ! -f /dst/prtopdef.ch ]; then
-          cp -a "$$src/." /dst/
-        fi
+        bash /plab/semear-volume.sh /protheus12/bin/appserver_deskflow/includes /dst prtopdef.ch includes-init
         cd /dst
         for f in *; do
           u=$$(printf '%s' "$$f" | tr '[:lower:]' '[:upper:]')
@@ -29,6 +27,7 @@ services:
         echo "includes-init: $$(ls | wc -l) entradas (originais + links maiusculos) em /dst"
     volumes:
       - includes:/dst
+      - ../stacks/semear-volume.sh:/plab/semear-volume.sh:ro
     network_mode: none
 
   lab:
@@ -45,7 +44,11 @@ services:
         PLAYWRIGHT_VERSION: ${PLAB_PLAYWRIGHT:-1.64.1}
     image: plab-lab:local
     init: true
-    restart: unless-stopped
+    restart: ${PLAB_RESTART:-unless-stopped}
+    # Usuario lab (uid 1000) sem nenhuma capability e sem ganhar privilegio por setuid. O Chrome roda
+    # com --no-sandbox (ver lab/Dockerfile), entao nao precisa de SYS_ADMIN.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     shm_size: 1g
     environment:
       # Nomes e portas internas das releases (rede plab). Senhas: so pelo .env local.
