@@ -28,6 +28,11 @@ plab ports                    # mostra portas configuradas e se estão livres
   não é reutilizada (código 3), exceto a de versão anterior do plab em que todos os containers
   ligados são dos projetos `plab-*`: segue com aviso para recriar (emenda de 03/11/2026, L2).
 - `up` de release em `PLAB_RENOVAR_SENHA_ADMIN` renova a data da última troca de senha do Admin.
+- `PLAB_LAB_DEV=1` no `.env` (emenda de 04/11/2026): todo compose do alvo `lab` (`up`, `down`,
+  `status`, `logs`, `smoke`, `setup`) recebe também `-f lab/compose.dev.yaml`, que monta `lab/`,
+  `cenarios/` e `skills/` do repositório em `/opt/plab/lab`, `/opt/plab/cenarios` e
+  `/opt/plab/skills` somente leitura. Ausente, vazio ou `0`: só `lab/compose.yaml` (padrão, código
+  da imagem). As releases ignoram a variável. Vale no `up` seguinte (o container é recriado).
 - `down --volumes` só afeta o project da release pedida (SC-002).
 - Código de saída: 0 sucesso; 2 uso incorreto; 3 pré-requisito ausente (Docker, `.env`, container
   lab parado); 4 porta ocupada; 5 serviço não ficou healthy (inclui `restart`); 10+n falha no passo

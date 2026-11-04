@@ -1,0 +1,22 @@
+# Modo desenvolvimento do container lab (override OPCIONAL de lab/compose.yaml).
+# Monta o codigo do repositorio por cima da copia da imagem, SOMENTE LEITURA: correcao em lab/,
+# cenarios/ ou skills/ vale no proximo comando, sem rebuild da imagem nem "docker cp".
+# Ativacao: PLAB_LAB_DEV=1 no .env (o plab e o plab.ps1 somam este arquivo com -f ao compose do lab).
+# Sem a variavel nada muda: o container usa o codigo copiado na imagem (padrao).
+# Equivalente manual: docker compose --env-file .env -f lab/compose.yaml -f lab/compose.dev.yaml up -d
+# Caminhos relativos a pasta lab/ (a do primeiro -f). author: daniel.montagna
+services:
+  lab:
+    volumes:
+      - type: bind
+        source: ../lab
+        target: /opt/plab/lab
+        read_only: true
+      - type: bind
+        source: ../cenarios
+        target: /opt/plab/cenarios
+        read_only: true
+      - type: bind
+        source: ../skills
+        target: /opt/plab/skills
+        read_only: true
