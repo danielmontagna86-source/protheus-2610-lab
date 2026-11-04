@@ -21,6 +21,8 @@ lab - Protheus 2610 Lab (container de ferramentas)
   lab smoke <2610|2510>         doctor -> compile LABHELLO -> interface leitura -> PRONTO
   lab setup [opcoes]            assistente de IA (Claude Code, Codex, ...)
   lab procedures <rel> <proc...>  instala processos de stored procedures (GRAVA no banco do lab)
+  lab menus <rel> <modulo> [caminho]  mapeia a arvore de menu (somente leitura) em evidencias/<rel>/menus
+  lab menus-diff <modulo>       relatorio 2610 x 2510 do menu em evidencias/menus-diff-<modulo>.md
 EOF
 }
 
@@ -33,6 +35,8 @@ case "$cmd" in
   ui)       exec "$LAB_LIB/ui.sh" "$@" ;;
   cenarios) exec "$LAB_LIB/cenarios.sh" "$@" ;;
   smoke)    exec "$LAB_LIB/smoke.sh" "$@" ;;
+  menus)    exec "$LAB_LIB/menus.sh" "$@" ;;
+  menus-diff) exec "$LAB_LIB/menus-diff.sh" "$@" ;;
   setup)    exec "$PLAB_HOME/lab/setup/lab-setup.sh" "$@" ;;
   procedures) validar_release "${1:-}" || exit 2
             PYTHONPATH="$PLAB_HOME/lab/tir${PYTHONPATH:+:$PYTHONPATH}" \

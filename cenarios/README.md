@@ -36,6 +36,24 @@ aprovadores, o que é a causa provável, ainda não confirmada.
 "Grade carregada" quer dizer que a grade do browse tem linhas e está de fato visível na tela.
 A checagem usa o elemento no centro da grade, para não aceitar uma tela em branco.
 
+## Mapa e diferenças de menu
+
+`lab menus <rel> <modulo> [caminho]` percorre o menu do módulo abrindo só grupos (itens com
+"(N)" no fim) e nunca uma rotina, e grava `evidencias/<rel>/menus/<modulo>.json`. Sai pelo
+"Log Off → Finalizar" mesmo se falhar ou estourar o limite. `lab menus-diff <modulo>` compara os
+JSON das duas releases e grava `evidencias/menus-diff-<modulo>.md` com os itens só na 2610, só na
+2510 e os grupos com contagem diferente. Exemplo com Compras:
+
+```bash
+docker exec plab-lab-lab-1 lab menus 2610 2
+docker exec plab-lab-lab-1 lab menus 2510 2
+docker exec plab-lab-lab-1 lab menus-diff 2
+```
+
+Caminho padrão `Atualizações`; use `todos` para incluir Consultas, Relatórios e Miscelânea.
+Limites em `PLAB_MENUS_PROFUNDIDADE` (5) e `PLAB_MENUS_TEMPO` (1200 s). Contrato:
+`specs/001-protheus-2610-lab/contracts/lab-menus.md`.
+
 ## Resultado e evidências
 
 `lab cenarios <rel>` termina com `cenarios <rel>: total=N falhas=F pulados=P` e sai com código 0

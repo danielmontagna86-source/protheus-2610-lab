@@ -1,0 +1,32 @@
+{
+  "release": "2610",
+  "modulo": 2,
+  "descricao_modulo": "",
+  "coletado_em": "2026-11-03T00:00:00-03:00",
+  "raizes": [
+    "Atualizações"
+  ],
+  "profundidade_max": 1,
+  "completo": false,
+  "topo": [],
+  "avisos": [
+    "fixture: so o primeiro nivel de Atualizações (coleta manual de 03/11/2026)"
+  ],
+  "menus": {
+    "Atualizações": [
+      "Cadastros (30)",
+      "Administração de Compras (11)",
+      "Central de Compras (3)",
+      "Solicitações (7)",
+      "Cotações (3)",
+      "Pedidos (2)",
+      "Liberação (2)",
+      "Contratos (6)",
+      "Movimentos (7)",
+      "Acd (4)",
+      "Novo Fluxo de Compras (1)",
+      "Central de Ia (1)",
+      "Controle Orçamentário (6)"
+    ]
+  }
+}

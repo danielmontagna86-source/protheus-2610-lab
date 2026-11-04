@@ -83,6 +83,8 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 | — | `lab ui <rel>` | smoke de interface com Playwright |
 | — | `lab cenarios <rel> [nome]` | cenários de leitura de `cenarios/ui-leitura` |
 | — | `lab tir <rel> <suite.py>` | executa suíte TIR com config temporária |
+| — | `lab menus <rel> <modulo> [caminho]` | mapeia o menu do módulo, somente leitura, em `evidencias/<rel>/menus/<modulo>.json` |
+| — | `lab menus-diff <modulo>` | relatório do que mudou no menu entre 2610 e 2510 em `evidencias/menus-diff-<modulo>.md` |
 | — | `lab procedures <rel> <proc...>` | instala processos de stored procedures pelo Configurador (**grava no banco do lab**) |
 | — | `lab versions` | versões instaladas |
 | — | `lab setup [--ia ...] [--auth conta\|api_key]` | configura CLIs de IA, publica skills e gera AGENTS/CLAUDE/GEMINI.md |
