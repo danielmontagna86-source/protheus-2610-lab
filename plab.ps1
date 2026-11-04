@@ -355,7 +355,10 @@ function Cmd-Copias([string] $cCmd, [string] $cRel, [string] $cNome) {
     Testar-Docker
     if ($cCmd -eq 'snapshots') {
         foreach ($cVol in (& docker volume ls -q --filter "label=$cRotuloCopia=$cRel")) {
-            $cData = & docker volume inspect $cVol --format '{{index .Labels "com.plab.criada"}}'
+            # Sem aspas duplas no --format: o PowerShell 5.1 as remove ao chamar o docker (o
+            # template quebrava com 'function "com" not defined', visto em 04/11/2026).
+            $oRotulos = (& docker volume inspect $cVol --format '{{json .Labels}}') | ConvertFrom-Json
+            $cData = $oRotulos.'com.plab.criada'
             Write-Host ('{0,-30} {1}' -f ($cVol -replace "^plab-${cRel}_snap_", ''), $cData)
         }
         exit 0
