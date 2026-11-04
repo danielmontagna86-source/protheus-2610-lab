@@ -88,6 +88,7 @@ class Mapeador:
         self.completo = True
         self.recolhe = True
         self.espera_ms = 15_000  # tempo maximo para o menu reagir a um clique
+        self.clique_js = False  # True na 2510 (ver clicar)
 
     def itens(self):
         return self.pg.evaluate(JS_ITENS)
@@ -109,7 +110,15 @@ class Mapeador:
         alvo = self.pg.evaluate_handle(JS_ITEM_NA_POSICAO, [indice, caption]).as_element()
         if alvo is None:
             raise AssertionError(f"item {caption!r} nao esta na posicao {indice} do menu; nada foi clicado")
-        alvo.click()
+        if self.clique_js:
+            # SmartClient HTML 10 (2510): o click() do Playwright esgotava o tempo depois de um grupo
+            # grande aberto ("element is not visible", 03/11/2026); o clique pelo proprio componente
+            # mapeou o menu inteiro. O caption ja foi conferido acima: so clica no grupo pretendido.
+            alvo.evaluate("e => { e.scrollIntoView({block: 'center'}); e.click(); }")
+        else:
+            # WebApp 26 (2610): so o clique normal abre o grupo. Limite conhecido: depois de um
+            # grupo grande o mapa fica parcial (ver issue no GitHub).
+            alvo.click()
 
     def tempo_esgotado(self):
         if time.time() > self.fim:
@@ -219,6 +228,7 @@ def main(argv):
     rc = 0
     with pw.navegador() as pg:
         mapa = Mapeador(pg, profundidade, tempo_s)
+        mapa.clique_js = rel == "2510"
         try:
             pw.entrar(pg, f"http://{host}:1234/webapp/", amb, os.environ.get("PLAB_ADMIN_USER", "Admin"),
                       pw.senha_admin(rel))
