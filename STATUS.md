@@ -209,6 +209,10 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   smoke e texto alternativo; texto aprovado com dois ajustes de fato (6 cenários, com Pedido de
   Compra, e issues sem número fixo). Segunda resposta ao comentário do Pedido de Compra com o
   resultado e o link da issue #16.
+- 04/11/2026, 08:35: terceira resposta ao comentário do Pedido de Compra (texto aprovado pelo
+  dono: "pode publicar assim"), depois do merge do PR #23: 7 cenários de Compras nas duas
+  releases, visualização do pedido 000001, Help A097APROV, comunicado da MATA150 na 2610 e link do
+  `cenarios/README.md`. Conferida uma vez só, após recarregar a publicação.
 
 ## Conferência pré-publicação (03/11/2026)
 
