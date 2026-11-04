@@ -25,12 +25,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: shellcheck
+      - name: shellcheck (todo *.sh versionado, plab e lab/bin sem extensao)
         run: |
+          # Lista vinda do git: script novo entra sozinho. lab-setup.sh roda a parte, de lab/setup
+          # (os 'source' dele sao relativos a essa pasta).
+          mapfile -t scripts < <(git ls-files -- '*.sh' plab 'lab/bin/*' ':!:*.ps1' ':!:lab/setup/lab-setup.sh')
+          printf 'shellcheck: %s\n' "${scripts[@]}"
           docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
             koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
-            -x -s bash plab lab/bin/lab lab/bin/plab-scan lab/bin/lib/*.sh lab/tests/*.sh stacks/2510/entrypoint-lab.sh stacks/semear-volume.sh \
-            lab/setup/lib/*.sh lab/setup/providers/*.sh
+            -x -s bash "${scripts[@]}"
           docker run --rm -v "$PWD:/mnt:ro" -w /mnt/lab/setup \
             koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
             -x -s bash lab-setup.sh
@@ -47,6 +50,12 @@ jobs:
         run: |
           python -B scripts/validate_package.py .
           python -B -m unittest discover -s tests
+
+      - name: scripts com sessao no Protheus saem pelo Log Off (licenca)
+        run: python -B lab/tests/test_sessoes_saem.py "$PWD"
+
+      - name: cenarios/ui-leitura/cenarios.json (estrutura e nomes unicos)
+        run: python -B lab/tests/test_cenarios_json.py "$PWD"
 
       - name: fontes AdvPL em CP1252 + CRLF
         run: bash lab/tests/test_encoding.sh "$PWD"
