@@ -12,6 +12,8 @@ lab compile <release> <arquivo...>
 lab ui <2610|2510>            # smoke de interface somente leitura (Playwright)
 lab cenarios <2610|2510> [nome]  # cenários de leitura de cenarios/ui-leitura/cenarios.json
 lab tir <release> <suite.py>  # suíte TIR com config temporária
+lab menus <2610|2510> <modulo> [caminho]  # mapa do menu, somente leitura (ver lab-menus.md)
+lab menus-diff <modulo>       # relatório 2610 × 2510 do menu (ver lab-menus.md)
 lab versions
 ```
 
