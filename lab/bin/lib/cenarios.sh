@@ -26,7 +26,7 @@ while IFS=$'\x1f' read -r nome modulo menu aba titulo aviso releases; do
   # Unica repeticao aceita: a interface nova da 2610 falhou ao enviar a requisicao na tela de sessao
   # (aviso registrado por entrar_sessao em plab_pw.py) e a sessao nao abriu. Refaz o cenario desde o
   # login, uma vez, com evidencias separadas; qualquer outra falha conta direto (04/11/2026).
-  if ! grep -q '^\[ui\] OK' "$base/$nome.out" && grep -q 'repetindo Entrar' "$base/$nome.out"; then
+  if ! grep -q '^\[ui\] OK' "$base/$nome.out" && grep -q 'aviso de requisicao' "$base/$nome.out"; then
     mv "$base/$nome.out" "$base/$nome-1a-tentativa.out"
     rodar_cenario "$base/$nome-repeticao" "$base/$nome.out"
     repetido=" (refeito do login apos aviso de requisicao; 1a tentativa em $nome-1a-tentativa.out)"

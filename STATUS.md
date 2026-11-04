@@ -133,6 +133,36 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 - O container `lab` em uso recebeu os dois arquivos por `docker cp`; quem atualizar o repositório
   precisa reconstruir a imagem (`docker compose ... build`), como já registrado.
 
+## Validação dos PRs #17–#19, cópia da base e incidente da 2610 (03–04/11/2026)
+
+- PR #17 (L1–L9) validado no lab antes do merge: testes 8/8 no Linux, rede com label, `*-init`
+  sem sobrescrever, lab com `cap_drop: ALL`, Postgres sem root, smoke PRONTO e cenários 6/6 nas duas.
+- PR #18 (modo desenvolvimento): `PLAB_LAB_DEV=1` monta `lab/`, `cenarios/` e `skills/` somente
+  leitura pelo `plab` e pelo `plab.ps1`; desligado, volta ao código da imagem. Validado e desligado.
+- PR #19 (`lab menus`): o mapa parava em 2 grupos nas duas releases. Correção: na 2510 o clique pelo
+  componente mapeia os 13 grupos de Atualizações do módulo Compras (completo: sim); na 2610 o mapa
+  continua parcial (issue #20). Diferenças já vistas: Controle Orçamentário, Dados Adicionais do
+  Produto e Características do Produto só na 2610; Cadastros 30 × 28.
+- **Incidente**: a primeira versão do `plab snapshot/restore` (não publicada) copiava a base com
+  `CREATE DATABASE ... TEMPLATE`. Depois do restore a 2610 recusou todo login com "O tipo do ambiente
+  encontrado está inválido, é necessária uma redefinição no Configurador". As tabelas eram idênticas;
+  a causa provável é o banco ter virado outro objeto para o Postgres. O dono recriou a 2610
+  (`plab.ps1 down 2610 -Volumes`, autorizado e executado por ele em 03/11/2026); `plab up 2610` em
+  96 s, `lab procedures 2610 08` e smoke PRONTO. A 2510 não foi afetada.
+- `plab snapshot/restore` refeito copiando o volume inteiro do Postgres com a release parada.
+  2510 (bash): cópia 93 s, restauração 55 s, tabela-marcador desfeita, cenários 6/6 depois do
+  restore. 2610 (PowerShell): cópia ~50 s, restauração ~47 s, marcador desfeito, login normal.
+- Login da 2610: aviso intermitente "Não foi possível enviar a requisição" na tela de sessão
+  (cerca de 1 em 6 sessões, só depois das 21h de 03/11, quando o relógio do lab em UTC já marcava
+  04/11; causa não confirmada). Repetir o "Entrar" não resolve; o `lab cenarios` agora refaz o
+  cenário desde o login, uma vez, só nesse sintoma, e conta `repeticoes=R` no resumo.
+- O "Entrar" não é mais repetido (no lab, 3 de 3 repetições falharam): ao ver o aviso, o login
+  desiste na hora e o `lab cenarios` / `lab smoke` refaz desde o login, uma vez, só nesse sintoma.
+  Investigação da causa na issue #21.
+- Validação final (04/11/2026, 01:36–02:16): `plab smoke 2610` PRONTO; `lab cenarios 2610` 6/6 com
+  1 repetição (`2610/cenarios-20261104-014048`); `plab smoke 2510` PRONTO com o passo 5;
+  `lab cenarios 2510` 6/6 (`2510/cenarios-20261104-020304`). Testes `lab/tests/` e shellcheck ok.
+
 ## Divulgação
 
 - 03/11/2026 (autorizado pelo dono: "já pode fazer agora no LinkedIn"), conta Daniel Montagna:

@@ -238,11 +238,12 @@ _JS_MENU_VISIVEL = """() => { let achou = false; const deep = (root) => root.que
   if (e.shadowRoot) deep(e.shadowRoot); }); deep(document); return achou; }"""
 
 
-def entrar_sessao(pagina, cfg, tentativas=3, espera_ms=60_000):
+def entrar_sessao(pagina, cfg, tentativas=1, espera_ms=60_000):
     """Clica 'Entrar' na tela de sessao e repete quando a interface nova mostra o aviso
-    'Nao foi possivel enviar a requisicao' com a tela ainda aberta. Visto na 2610 em 03/11/2026,
-    cerca de 1 sessao em 6, so depois das 21h (o relogio do lab, em UTC, ja estava no dia 04):
-    causa nao confirmada. Repetir o clique e so leitura: a sessao ainda nao abriu."""
+    'Nao foi possivel enviar a requisicao' com a tela ainda aberta. Visto na 2610 em 03 e
+    04/11/2026, de 1 a 2 sessoes em 6; causa nao confirmada. No lab, repetir o clique nunca abriu a
+    sessao (3 de 3 falharam): por isso o padrao e 1 tentativa, e quem resolve e o 'lab cenarios' ou o
+    'lab smoke', que refazem desde o login ao ver "aviso de requisicao" na saida."""
     botao = cfg.get_by_role("button", name=re.compile(r"^\s*Entrar\s*$"))
 
     def aviso_visivel():
@@ -274,7 +275,10 @@ def entrar_sessao(pagina, cfg, tentativas=3, espera_ms=60_000):
             pagina.wait_for_timeout(500)
         else:
             return  # sem aviso no prazo: quem chamou confere o menu
-        print(f"[ui] aviso '{AVISO_REQUISICAO}' na tentativa {tentativa}; repetindo Entrar", flush=True)
+        print(f"[ui] aviso de requisicao na tela de sessao (tentativa {tentativa} de {tentativas}): "
+              f"'{AVISO_REQUISICAO}'", flush=True)
+        if tentativa == tentativas:
+            return
         # Espera o aviso sumir: senao a proxima tentativa veria o aviso antigo e desistiria na hora.
         fim_aviso = time.time() + 10
         while aviso_visivel() and time.time() < fim_aviso:
