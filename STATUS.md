@@ -206,6 +206,10 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   dá Help PESQ01; MATA110 e MATA270 reabrem a inclusão depois de salvar; a FINA010 pergunta
   "Confirma Exclusão?"; a numeração da SC não volta com `plab restore` (000093 → 000096 na 2610).
 - Copias `antes_gravacao_20261104` mantidas nas duas releases (apagar com `plab snapshot-rm`).
+- Correção no `plab scan` (04/11/2026): o item "docker logs plab-*" nunca tinha rodado. No
+  PowerShell 5.1 as aspas do `--format` sumiam, o template falhava (`function "com" not defined`) e
+  todos os containers eram pulados, dando 0. Agora lê os rótulos em JSON, mostra quantos containers
+  varreu e vira N/VER se não achar nenhum. Rodada nova: zero ocorrências com `containers=13`.
 
 ## Divulgação
 

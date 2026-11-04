@@ -59,16 +59,21 @@ if ($cIdLab) {
         if ($aP[0] -eq 'valores') { "       (container lab: $($aP[1]) valores sensiveis conhecidos)"; continue }
         Resultado "segredos do container lab em $($aP[0])" ([int] $aP[1])
     }
-    $nLogs = 0
+    $nLogs = 0; $nConts = 0
     $aIds = & docker ps -aq --filter 'label=com.docker.compose.project'
     foreach ($cId in $aIds) {
-        $cProj = & docker inspect $cId --format '{{index .Config.Labels "com.docker.compose.project"}}'
+        # Sem aspas duplas no --format: o PowerShell 5.1 as remove ao chamar o docker, o template
+        # quebrava ('function "com" not defined') e todos os containers eram pulados.
+        $oRotulos = (& docker inspect $cId --format '{{json .Config.Labels}}') | ConvertFrom-Json
+        $cProj = $oRotulos.'com.docker.compose.project'
         if ($cProj -notlike 'plab-*') { continue }
+        $nConts++
         # O texto dos logs vai do host para o container; os valores nunca saem do container.
         $cRes = & cmd /c "docker logs $cId 2>&1 | docker exec -i $cIdLab bash /opt/plab/lab/bin/lib/scan-interno.sh stdin"
         $nLogs += [int] (($cRes -split '\s+')[1])
     }
-    Resultado 'segredos (senhas, chaves, tokens) nos docker logs plab-*' $nLogs
+    if ($nConts -eq 0) { Nao-Verificado 'segredos nos docker logs plab-*' 'nenhum container plab-* encontrado' }
+    else { Resultado 'segredos (senhas, chaves, tokens) nos docker logs plab-*' $nLogs "(containers=$nConts)" }
 } else {
     Nao-Verificado 'segredos do container lab (chaves, tokens, workspace)' 'container lab parado: plab up lab'
     Nao-Verificado 'segredos nos docker logs plab-*' 'container lab parado'
