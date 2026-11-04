@@ -177,6 +177,9 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   2510. A Liberar de Documentos dá o Help A097APROV para o Admin nas duas releases. A base não tem
   cotações, inventário nem pedidos liberados (browse vazio ou Help RECNO). O título do inventário
   vem como "Digitaçäo" (com "ä"). O pedido de compra 000001 abre em Visualizar com os 14 itens.
+- Bateria completa com o JSON final (04/11/2026, 06:15–08:28): `lab cenarios 2610` total=31
+  falhas=0 pulados=1 (cotações) repeticoes=0 (`2610/cenarios-20261104-061533`); `lab cenarios 2510`
+  total=31 falhas=0 pulados=0 repeticoes=0 (`2510/cenarios-20261104-071929`).
 - Ficaram fora: a conferência de valores contra SQL (saldo, posição de cliente, contagem de itens)
   e as gravações opcionais (C3, E3, F3, V5), que dependem de autorização do dono e de
   `plab snapshot`/`restore`.
