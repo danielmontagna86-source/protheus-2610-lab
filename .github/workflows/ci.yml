@@ -57,6 +57,9 @@ jobs:
       - name: cenarios/ui-leitura/cenarios.json (estrutura e nomes unicos)
         run: python -B lab/tests/test_cenarios_json.py "$PWD"
 
+      - name: cenarios/ui-gravacao/gravacoes.json (estrutura, chaves ZZ e nomes unicos)
+        run: python -B lab/tests/test_gravacoes_json.py "$PWD"
+
       - name: fontes AdvPL em CP1252 + CRLF
         run: bash lab/tests/test_encoding.sh "$PWD"
 

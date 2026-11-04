@@ -1,0 +1,144 @@
+{
+  "cenarios": [
+    {
+      "nome": "solicitacao-compras",
+      "rotina": "MATA110",
+      "modulo": 2,
+      "menu": [
+        "Atualizações",
+        "Solicitações",
+        "Solicitação de Compras"
+      ],
+      "chave_campo": "cA110Num",
+      "tabela": "SC1",
+      "botao": "Salvar",
+      "form_incluir": "Solicitaçäo de Compras - INCLUIR",
+      "campo_reabre": "cA110Num",
+      "campos": [
+        {
+          "campo": "cA110Num"
+        }
+      ],
+      "itens": [
+        {
+          "coluna": "Produto",
+          "valor": "IND.001"
+        },
+        {
+          "coluna": "Quantidade",
+          "valor": "1"
+        }
+      ],
+      "releases": [
+        "2610",
+        "2510"
+      ]
+    },
+    {
+      "nome": "natureza",
+      "rotina": "FINA010",
+      "modulo": 6,
+      "menu": [
+        "Atualizações",
+        "Cadastros",
+        "Naturezas"
+      ],
+      "aviso": "MV_1DUP",
+      "chave": "ZZLAB01",
+      "tabela": "SED",
+      "campos": [
+        {
+          "campo": "M->ED_CODIGO",
+          "valor": "ZZLAB01"
+        },
+        {
+          "campo": "M->ED_DESCRIC",
+          "valor": "LAB TESTE"
+        },
+        {
+          "campo": "M->ED_COND",
+          "opcao": "D - Despesa"
+        }
+      ],
+      "releases": [
+        "2610",
+        "2510"
+      ]
+    },
+    {
+      "nome": "condicao-pagamento",
+      "rotina": "MATA360",
+      "modulo": 5,
+      "menu": [
+        "Atualizações",
+        "Cadastros",
+        "Condições de Pagamento"
+      ],
+      "chave": "ZZ9",
+      "tabela": "SE4",
+      "campos": [
+        {
+          "campo": "M->E4_CODIGO",
+          "valor": "ZZ9"
+        },
+        {
+          "campo": "M->E4_TIPO",
+          "valor": "1"
+        },
+        {
+          "campo": "M->E4_COND",
+          "valor": "30"
+        },
+        {
+          "campo": "M->E4_DESCRI",
+          "valor": "LAB TESTE"
+        }
+      ],
+      "releases": [
+        "2610",
+        "2510"
+      ]
+    },
+    {
+      "nome": "inventario",
+      "rotina": "MATA270",
+      "modulo": 4,
+      "menu": [
+        "Atualizações",
+        "Movimentações",
+        "Internas",
+        "Inventário"
+      ],
+      "parametros": "ok",
+      "titulo": "Digitaçäo do Inventário",
+      "pesquisa": false,
+      "botao": "Salvar",
+      "form_incluir": "Digitaçäo do Inventário - INCLUIR",
+      "campo_reabre": "M->B7_QUANT",
+      "chave": "ZZINV01",
+      "tabela": "SB7",
+      "campos": [
+        {
+          "campo": "M->B7_COD",
+          "valor": "IND.001"
+        },
+        {
+          "campo": "M->B7_LOCAL",
+          "valor": "01"
+        },
+        {
+          "campo": "M->B7_DOC",
+          "valor": "ZZINV01"
+        },
+        {
+          "campo": "M->B7_QUANT",
+          "valor": "197"
+        }
+      ],
+      "releases": [
+        "2610",
+        "2510"
+      ]
+    }
+  ]
+}

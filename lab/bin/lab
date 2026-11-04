@@ -18,6 +18,7 @@ lab - Protheus 2610 Lab (container de ferramentas)
   lab tir <release> <suite.py>  executa suite TIR com config temporaria
   lab ui <2610|2510>            smoke de interface (Playwright) somente leitura
   lab cenarios <rel> [nome]     cenarios de leitura (cenarios/ui-leitura/cenarios.json)
+  lab gravacoes <rel> [nome]    cenarios que GRAVAM e revertem (exige PLAB_GRAVACAO_AUTORIZADA=sim)
   lab smoke <2610|2510>         doctor -> compile LABHELLO -> interface leitura -> PRONTO
   lab setup [opcoes]            assistente de IA (Claude Code, Codex, ...)
   lab procedures <rel> <proc...>  instala processos de stored procedures (GRAVA no banco do lab)
@@ -34,6 +35,7 @@ case "$cmd" in
   tir)      exec "$LAB_LIB/tir.sh" "$@" ;;
   ui)       exec "$LAB_LIB/ui.sh" "$@" ;;
   cenarios) exec "$LAB_LIB/cenarios.sh" "$@" ;;
+  gravacoes) exec "$LAB_LIB/gravacoes.sh" "$@" ;;
   smoke)    exec "$LAB_LIB/smoke.sh" "$@" ;;
   menus)    exec "$LAB_LIB/menus.sh" "$@" ;;
   menus-diff) exec "$LAB_LIB/menus-diff.sh" "$@" ;;

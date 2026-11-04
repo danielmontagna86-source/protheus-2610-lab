@@ -565,3 +565,232 @@ def aba_aberta(pagina, titulo, timeout_ms=60_000):
         return True
     except Exception:  # noqa: BLE001
         return False
+
+
+# ---------------------------------------------------------------------------------------------
+# Gravacao (cenarios de lab/bin/lib/gravacoes.sh). So rodam com autorizacao registrada do dono e
+# copia da base antes (plab snapshot); cada cenario inclui um registro de teste e o exclui pela
+# propria rotina. Seletores observados no WebApp 26 / SmartClient HTML 10 em 04/11/2026.
+# ---------------------------------------------------------------------------------------------
+
+def campo_input(pagina, campo):
+    """<input> interno do campo do formulario pelo atributo name do componente (ex.: 'M->ED_CODIGO')."""
+    return pagina.locator(f'[name="{campo}"] input >> visible=true').first
+
+
+def _mesmo_numero(atual, esperado):
+    """Campo numerico com mascara brasileira: '1.234,50' == '1234.5'."""
+    try:
+        return float(atual.replace(".", "").replace(",", ".")) == float(esperado.replace(",", "."))
+    except ValueError:
+        return False
+
+
+def preencher(pagina, campo, valor, timeout_ms=30_000):
+    """Digita o valor no campo e sai com Tab (dispara a validacao do campo no AppServer).
+    O <input> vem com espacos ate o tamanho do campo: sem selecionar tudo antes, o 1o caractere
+    estoura o maxlength e o foco pula para o campo seguinte (visto em 04/11/2026 na FINA010)."""
+    entrada = campo_input(pagina, campo)
+    entrada.wait_for(state="visible", timeout=timeout_ms)
+    for _ in range(3):
+        entrada.click()
+        pagina.wait_for_timeout(300)
+        entrada.press("Control+a")
+        entrada.press_sequentially(valor, delay=60)
+        pagina.wait_for_timeout(300)
+        pagina.keyboard.press("Tab")
+        pagina.wait_for_timeout(1_200)
+        atual = entrada.input_value().strip()
+        if atual.upper() == valor.strip().upper() or _mesmo_numero(atual, valor):
+            return True
+    raise AssertionError(f"campo {campo}: valor '{entrada.input_value().strip()}' != '{valor}'")
+
+
+def escolher(pagina, campo, opcao, timeout_ms=30_000):
+    """Seleciona a opcao (texto visivel, ex.: 'D - Despesa') no <select> interno do wa-combobox."""
+    lista = pagina.locator(f'[name="{campo}"] select').first
+    lista.wait_for(state="attached", timeout=timeout_ms)
+    lista.select_option(label=opcao)
+    pagina.wait_for_timeout(1_000)
+    atual = lista.evaluate("e => e.selectedIndex >= 0 ? e.options[e.selectedIndex].text.trim() : ''")
+    if atual != opcao:
+        raise AssertionError(f"campo {campo}: opcao '{atual}' != '{opcao}'")
+    return True
+
+
+_JS_LUPA = """() => {
+  // Botao da lupa do campo 'Pesquisar' do browse: wa-button visivel dentro da area do
+  // wa-text-input que contem o <input placeholder="Pesquisar">.
+  const visivel = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  let caixa = null; const botoes = [];
+  const deep = (root) => root.querySelectorAll('*').forEach(e => {
+    const t = e.tagName.toLowerCase();
+    if (t === 'wa-text-input' && visivel(e) && e.shadowRoot && e.shadowRoot.querySelector('input[placeholder="Pesquisar"]')) caixa = e.getBoundingClientRect();
+    if (t === 'wa-button' && visivel(e)) botoes.push(e);
+    if (e.shadowRoot) deep(e.shadowRoot);
+  });
+  deep(document);
+  if (!caixa) return null;
+  return botoes.find(b => { const r = b.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    return x > caixa.left && x < caixa.right && y > caixa.top && y < caixa.bottom; }) || null;
+}"""
+
+_JS_LINHAS = """() => {
+  // Linhas de dados da grade visivel do browse (sem o cabecalho), como texto.
+  let linhas = null;
+  const deep = (root) => root.querySelectorAll('*').forEach(e => {
+    if (linhas === null && e.tagName.toLowerCase() === 'wa-tgrid') { const b = e.getBoundingClientRect();
+      if (b.width > 50 && b.height > 50) { linhas = [];
+        (e.shadowRoot || e).querySelectorAll('tr').forEach((tr, k) => { const t = tr.innerText.replace(/\\s+/g, ' ').trim(); if (k > 0 && t) linhas.push(t); }); } }
+    if (e.shadowRoot) deep(e.shadowRoot); });
+  deep(document); return linhas || [];
+}"""
+
+
+def linhas_grade(pagina):
+    return pagina.evaluate(_JS_LINHAS)
+
+
+def pesquisar(pagina, texto, timeout_ms=30_000):
+    """Pesquisa no campo 'Pesquisar' do browse e clica na lupa (o Enter nao pesquisa). A grade fica
+    filtrada pelo texto. Devolve as linhas da grade que contem o texto."""
+    entrada = pagina.locator('input[placeholder="Pesquisar"] >> visible=true').first
+    entrada.wait_for(state="visible", timeout=timeout_ms)
+    # Neste campo o Ctrl+A digita 'a' (visto em 04/11/2026): limpa com fill e digita tecla a tecla.
+    # Logo depois de fechar um formulario os primeiros caracteres podem se perder ('000094' virou
+    # '094' na MATA110): confere o texto e repete.
+    for _ in range(3):
+        entrada.click()
+        entrada.fill("")
+        pagina.wait_for_timeout(500)
+        entrada.press_sequentially(texto, delay=60)
+        pagina.wait_for_timeout(300)
+        if entrada.input_value().strip() == texto:
+            break
+    else:
+        raise AssertionError(f"campo 'Pesquisar' ficou com '{entrada.input_value()}' em vez de '{texto}'")
+    lupa = pagina.evaluate_handle(_JS_LUPA).as_element()
+    if not lupa:
+        raise AssertionError("lupa do campo 'Pesquisar' nao encontrada")
+    lupa.click()
+    pagina.wait_for_timeout(2_000)
+    # Sem resultado, a rotina mostra o Help PESQ01 e a grade fica sem filtro (visto em 04/11/2026).
+    if help_visivel(pagina, "PESQ01", 3_000):
+        fechar_help(pagina, "PESQ01")
+        return []
+    return [linha for linha in linhas_grade(pagina) if texto.upper() in linha.upper()]
+
+
+def acao_browse(pagina, acao, timeout_ms=30_000):
+    """Clica na acao do browse: botao visivel com o caption, ou item do menu 'Outras Ações'."""
+    if existe_caption(pagina, "wa-button", acao, 3_000):
+        por_caption(pagina, "wa-button", acao).click()
+        return
+    por_caption(pagina, "wa-button", "Outras Ações", timeout_ms).click()
+    por_caption(pagina, "wa-menu-popup-item", acao, timeout_ms).click()
+
+
+_JS_MENSAGEM = """(trechos) => {
+  // Texto visivel (caption) que contem algum dos trechos, sem diferenciar caixa; devolve o texto.
+  let achado = null;
+  const deep = (root) => root.querySelectorAll('*').forEach(e => {
+    if (achado) return;
+    const c = (e.getAttribute && e.getAttribute('caption') || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();
+    const r = e.getBoundingClientRect ? e.getBoundingClientRect() : {width: 0, height: 0};
+    if (c && r.width > 0 && r.height > 0 && trechos.some(t => c.toLowerCase().includes(t.toLowerCase()))) { achado = c; return; }
+    if (e.shadowRoot) deep(e.shadowRoot);
+  });
+  deep(document); return achado;
+}"""
+
+
+# Perguntas que a propria rotina faz depois do 'Confirmar' e que o cenario responde com 'Sim'
+# (somente estas; qualquer outra pergunta faz o cenario falhar por tempo). FINA010: 'Confirma
+# Exclusão?' (04/11/2026).
+PERGUNTAS_SIM = ("Confirma Exclusão?",)
+
+
+def confirmar_formulario(pagina, botao="Confirmar", titulo_form="", campo_reabre="", sucesso=("com sucesso",),
+                         perguntas_sim=PERGUNTAS_SIM, timeout_ms=90_000):
+    """Clica no botao de confirmacao do formulario ('Confirmar' no MVC, 'Salvar' nas telas antigas)
+    e espera o resultado: a mensagem de sucesso (MVC: 'Registro inserido com sucesso.'); ou, se
+    titulo_form for informado, o formulario com esse titulo fechar sem mensagem; ou, se
+    campo_reabre for informado (telas antigas que reabrem a inclusao depois de salvar, ex.:
+    MATA270), o valor desse campo mudar (formulario novo) e entao o formulario novo e cancelado.
+    Responde 'Sim' so as perguntas conhecidas (perguntas_sim). Falha se aparecer um Help. Fecha a
+    mensagem com 'Fechar' e devolve o texto dela."""
+    antes = campo_input(pagina, campo_reabre).input_value() if campo_reabre else None
+    por_caption(pagina, "wa-button", botao).click()
+    fim = time.time() + timeout_ms / 1000.0
+    resposta = None
+    while time.time() < fim:
+        if campo_reabre:
+            try:
+                agora = campo_input(pagina, campo_reabre).input_value(timeout=2_000)
+            except Exception:  # noqa: BLE001  (formulario sendo redesenhado)
+                agora = antes
+            if agora != antes and not pagina.evaluate(_JS_MENSAGEM, ["Help:"]):
+                clicar_ate_sumir(pagina, "Cancelar", ("*", titulo_form))
+                return f"salvo; formulario reaberto ({campo_reabre} '{antes.strip()}' -> '{agora.strip()}') e cancelado"
+        texto = pagina.evaluate(_JS_MENSAGEM, list(sucesso) + list(perguntas_sim) + ["Help:"])
+        if texto and "help:" in texto.lower():
+            raise AssertionError(f"formulario recusado: {texto[:200]}")
+        if texto and any(p.lower() in texto.lower() for p in perguntas_sim):
+            print(f"  [pergunta] '{texto}': Sim")
+            clicar_ate_sumir(pagina, "Sim", ("*", texto))
+            continue
+        if texto:
+            resposta = texto
+            break
+        if titulo_form and not campo_reabre and not pagina.evaluate(_JS_MENSAGEM, [titulo_form]):
+            pagina.wait_for_timeout(2_000)  # da tempo de um Help tardio aparecer
+            if not pagina.evaluate(_JS_MENSAGEM, ["Help:"]):
+                return f"formulario '{titulo_form}' fechado sem mensagem"
+        pagina.wait_for_timeout(1_000)
+    if resposta is None:
+        raise AssertionError(f"mensagem de sucesso nao apareceu em {timeout_ms // 1000}s")
+    for _ in range(5):
+        if existe_caption(pagina, "wa-button", "Fechar", 5_000):
+            por_caption(pagina, "wa-button", "Fechar").click()
+        try:
+            pagina.wait_for_function("(t) => !(" + _JS_MENSAGEM + ")(t)", arg=list(sucesso), timeout=5_000)
+            return resposta
+        except Exception:  # noqa: BLE001
+            continue
+    raise AssertionError(f"mensagem '{resposta}' continuou visivel")
+
+
+_JS_CELULA = """([coluna, linha]) => {
+  // Centro da celula (coluna pelo titulo do cabecalho, linha 1 = 1o item) da grade de itens
+  // (wa-tgetdados) do formulario em primeiro plano: a ultima visivel no DOM.
+  let alvo = null;
+  const deep = (root) => root.querySelectorAll('*').forEach(e => {
+    if (e.tagName.toLowerCase() === 'wa-tgetdados') { const b = e.getBoundingClientRect();
+      if (b.width > 50 && b.height > 20) { const trs = (e.shadowRoot || e).querySelectorAll('tr');
+        if (trs.length > linha) { const cab = Array.from(trs[0].children).map(c => c.innerText.trim());
+          const k = cab.indexOf(coluna);
+          if (k >= 0) { const q = trs[linha].children[k].getBoundingClientRect();
+            alvo = {x: q.left + q.width / 2, y: q.top + q.height / 2, texto: trs[linha].children[k].innerText.trim()}; } } } }
+    if (e.shadowRoot) deep(e.shadowRoot); });
+  deep(document); return alvo;
+}"""
+
+
+def preencher_celula(pagina, coluna, valor, linha=1):
+    """Grade de itens (wa-tgetdados, telas antigas como a MATA110): clica na celula, digita (a
+    digitacao abre o editor do campo, ex.: M->C1_PRODUTO) e confirma com Enter. Confere o texto
+    da celula depois."""
+    for _ in range(3):
+        celula = pagina.evaluate(_JS_CELULA, [coluna, linha])
+        if not celula:
+            raise AssertionError(f"coluna '{coluna}' / linha {linha} nao encontrada na grade de itens")
+        pagina.mouse.click(celula["x"], celula["y"])
+        pagina.wait_for_timeout(1_500)
+        pagina.keyboard.type(valor, delay=80)
+        pagina.wait_for_timeout(800)
+        pagina.keyboard.press("Enter")
+        pagina.wait_for_timeout(2_500)
+        texto = pagina.evaluate(_JS_CELULA, [coluna, linha])["texto"]
+        if texto.upper() == valor.upper() or _mesmo_numero(texto, valor):
+            return True
+    raise AssertionError(f"celula '{coluna}': valor '{texto}' != '{valor}'")

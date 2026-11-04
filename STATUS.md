@@ -181,8 +181,31 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   falhas=0 pulados=1 (cotações) repeticoes=0 (`2610/cenarios-20261104-061533`); `lab cenarios 2510`
   total=31 falhas=0 pulados=0 repeticoes=0 (`2510/cenarios-20261104-071929`).
 - Ficaram fora: a conferência de valores contra SQL (saldo, posição de cliente, contagem de itens)
-  e as gravações opcionais (C3, E3, F3, V5), que dependem de autorização do dono e de
-  `plab snapshot`/`restore`.
+  e as gravações opcionais (C3, E3, F3, V5), feitas depois na seção seguinte.
+
+## Cenários de gravação (04/11/2026)
+
+- Autorização do dono no chat em 04/11/2026: "pode seguir com as gravações usando snapshot".
+- Cópia antes de tudo: `plab snapshot <rel> antes_gravacao_20261104` nas duas releases (13:10–13:13).
+  Base de partida conferida por SQL (só leitura), igual nas duas: SED 27, SE4 3, SC1 51 (última
+  000092), SB7 0, IND.001/01 com `B2_QATU` 197 e `B2_SALPEDI` 0, `MV_SCSLDBL` e `MV_APROVSC` = .F.
+- Novo `lab gravacoes <rel> [nome]` (`cenarios/ui-gravacao/gravacao_ui.py` + `gravacoes.json`):
+  inclui um registro de teste pela rotina, confere no browse, exclui pela própria rotina e confere
+  que sumiu. Recusa sem `PLAB_GRAVACAO_AUTORIZADA=sim` (código 3). Quatro cenários: C3
+  solicitacao-compras (MATA110), F3 natureza (FINA010), V5 condicao-pagamento (MATA360) e E3
+  inventario (MATA270; o acerto MATA340 nunca roda).
+- Bateria final com a base restaurada (15:10–15:32): `lab gravacoes 2610` total=4 falhas=0
+  (`2610/gravacoes-20261104-151001`); `lab gravacoes 2510` total=4 falhas=0
+  (`2510/gravacoes-20261104-152115`). SQL depois: contagens ativas iguais às de partida, os quatro
+  registros de teste com `D_E_L_E_T_ = '*'`, `B2_QATU` 197 e `B2_SALPEDI` 0. Nas rodadas individuais
+  a SC somou 1 em `B2_SALPEDI` na inclusão e tirou na exclusão.
+- Depois: `plab restore <rel> antes_gravacao_20261104` nas duas; SQL sem nenhuma linha de teste.
+  Regressão de leitura: `lab cenarios <rel> naturezas-visualizar` e `solicitacao-compras` ok.
+- Achados: campo com espaços até o tamanho faz o foco pular no 1º caractere (é preciso selecionar
+  tudo antes de digitar); no "Pesquisar" o Ctrl+A digita "a", o Enter não pesquisa e a busca vazia
+  dá Help PESQ01; MATA110 e MATA270 reabrem a inclusão depois de salvar; a FINA010 pergunta
+  "Confirma Exclusão?"; a numeração da SC não volta com `plab restore` (000093 → 000096 na 2610).
+- Copias `antes_gravacao_20261104` mantidas nas duas releases (apagar com `plab snapshot-rm`).
 
 ## Divulgação
 
