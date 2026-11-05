@@ -5,6 +5,10 @@
 # "Atualizações>Cadastros", lista separada por virgula ou "todos".
 # Limites: PLAB_MENUS_PROFUNDIDADE (5), PLAB_MENUS_TEMPO (1200 s de navegacao) e PLAB_MENUS_LIMITE
 # (corte duro do processo, padrao TEMPO+300 s; se ele cortar, a sessao fica presa: plab restart <rel>).
+# Modo por grupo (PLAB_MENUS_POR_GRUPO=sim; padrao na 2610, ver issue #20): uma sessao por grupo do
+# primeiro nivel (lab/tir/mapear_por_grupo.py), porque no WebApp 26 um grupo grande aberto nao recolhe
+# e o mapa numa sessao so ficava parcial. Mais lento (um login por grupo). PLAB_MENUS_POR_GRUPO=nao
+# volta ao modo de uma sessao.
 # Saida: 0 mapa completo; 1 mapa incompleto/erro (JSON parcial gravado); 2 uso invalido;
 #        4 saida por Log Off nao confirmada; 124 corte duro por tempo.
 set -uo pipefail
@@ -22,9 +26,19 @@ dir="${PLAB_HOME:-/opt/plab}/evidencias/$rel/menus"
 mkdir -p "$dir"
 tempo=${PLAB_MENUS_TEMPO:-1200}
 limite=${PLAB_MENUS_LIMITE:-$((tempo + 300))}
-echo "menus $rel: modulo $modulo, caminho '$caminho' (profundidade ${PLAB_MENUS_PROFUNDIDADE:-5}, tempo ${tempo}s)"
-PLAB_MENUS_TEMPO=$tempo PYTHONPATH="${PLAB_HOME:-/opt/plab}/lab/tir${PYTHONPATH:+:$PYTHONPATH}" \
-  timeout "$limite" python -u "${PLAB_HOME:-/opt/plab}/lab/tir/mapear_menu.py" "$rel" "$modulo" "$caminho" "$dir/$modulo.json"
+por_grupo=${PLAB_MENUS_POR_GRUPO:-}
+if [ -z "$por_grupo" ]; then
+  if [ "$rel" = 2610 ]; then por_grupo=sim; else por_grupo=nao; fi
+fi
+echo "menus $rel: modulo $modulo, caminho '$caminho' (profundidade ${PLAB_MENUS_PROFUNDIDADE:-5}, tempo ${tempo}s, por grupo: $por_grupo)"
+if [ "$por_grupo" = sim ]; then
+  # o limite de tempo vale por sessao (aplicado dentro do mapear_por_grupo.py)
+  PLAB_MENUS_TEMPO=$tempo PYTHONPATH="${PLAB_HOME:-/opt/plab}/lab/tir${PYTHONPATH:+:$PYTHONPATH}" \
+    python -u "${PLAB_HOME:-/opt/plab}/lab/tir/mapear_por_grupo.py" "$rel" "$modulo" "$caminho" "$dir/$modulo.json"
+else
+  PLAB_MENUS_TEMPO=$tempo PYTHONPATH="${PLAB_HOME:-/opt/plab}/lab/tir${PYTHONPATH:+:$PYTHONPATH}" \
+    timeout "$limite" python -u "${PLAB_HOME:-/opt/plab}/lab/tir/mapear_menu.py" "$rel" "$modulo" "$caminho" "$dir/$modulo.json"
+fi
 rc=$?
 [ "$rc" -eq 124 ] && erro "mapeamento cortado pelo limite de ${limite}s; a sessao pode ter ficado presa: plab restart $rel"
 [ "$rc" -eq 4 ] && erro "saida por Log Off nao confirmada; libere a licenca com plab restart $rel"
