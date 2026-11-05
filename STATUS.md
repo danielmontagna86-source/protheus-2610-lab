@@ -151,12 +151,14 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 - Issue #21 (aviso "Não foi possível enviar a requisição" no Entrar da 2610), diagnóstico em
   05/11/2026: 4 baterias de leitura de 31 cenários, aviso em 3 a 6 cenários por bateria; refazer
   desde o login resolve quase sempre, mas em 2 das 4 baterias 1 ou 2 cenários falharam porque o
-  aviso voltou na repetição. O
-  `Entrar` vai pelo websocket do WebApp: nenhuma requisição HTTP nem erro de console em nenhum dos
-  casos; com o aviso, 0 quadros enviados e 0 recebidos (5 de 5); sem aviso, 12 a 20 em cada
-  sentido (29 de 29). O WebApp desiste no navegador antes de enviar; causa no cliente do WebApp 26,
-  não confirmada. `plab_pw.entrar_sessao` registra isso no aviso (`PLAB_DIAG_SESSAO=sim` também nos
-  logins bons).
+  aviso voltou na repetição. O `Entrar` vai pelo websocket do WebApp: nenhuma requisição HTTP nem
+  erro de console em nenhum dos casos; com o aviso, 0 quadros enviados e 0 recebidos (5 de 5); sem
+  aviso, 12 a 20 em cada sentido (29 de 29). O WebApp desiste no navegador antes de enviar; causa
+  no cliente do WebApp 26, não confirmada. `plab_pw.entrar_sessao` registra isso no aviso
+  (`PLAB_DIAG_SESSAO=sim` também nos logins bons). PR #35; a issue fica aberta.
+- Imagem lab reconstruída em 05/11/2026 com as dependências travadas (#4), o mapa por grupo (#20) e
+  o diagnóstico (#21); container recriado (`plab up lab`, evidências preservadas). `plab smoke 2610`
+  e `plab smoke 2510`: PRONTO nas duas.
 - **Incidente**: a primeira versão do `plab snapshot/restore` (não publicada) copiava a base com
   `CREATE DATABASE ... TEMPLATE`. Depois do restore a 2610 recusou todo login com "O tipo do ambiente
   encontrado está inválido, é necessária uma redefinição no Configurador". As tabelas eram idênticas;
