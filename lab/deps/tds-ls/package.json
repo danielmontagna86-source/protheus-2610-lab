@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@totvs/tds-ls": "2.2.7"
+  }
+}

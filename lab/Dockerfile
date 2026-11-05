@@ -30,7 +30,12 @@ RUN base="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERS
  && printf '%s  chrome.zip\n%s  chromedriver.zip\n' "$CHROME_SHA256" "$CHROMEDRIVER_SHA256" | sha256sum -c - \
  && unzip -q chrome.zip -d /opt && mv /opt/chrome-linux64 /opt/chrome \
  && unzip -q chromedriver.zip -d /opt && mv /opt/chromedriver-linux64 /opt/chromedriver
-RUN PATH="/opt/node/bin:$PATH" npm install --prefix /opt/tds-ls --no-audit --no-fund "@totvs/tds-ls@${TDS_LS_VERSION}" \
+# tds-ls pelo package-lock.json (integridade sha512 conferida pelo npm ci). A versao do lock tem de
+# ser a do TDS_LS_VERSION: ao trocar a versao, gere o lock de novo (ver lab/deps/README.md).
+COPY lab/deps/tds-ls/package.json lab/deps/tds-ls/package-lock.json /opt/tds-ls/
+RUN PATH="/opt/node/bin:$PATH" npm ci --prefix /opt/tds-ls --no-audit --no-fund \
+ && v=$(/opt/node/bin/node -p "require('/opt/tds-ls/node_modules/@totvs/tds-ls/package.json').version") \
+ && { [ "$v" = "${TDS_LS_VERSION}" ] || { echo "lock do tds-ls tem $v, TDS_LS_VERSION=${TDS_LS_VERSION}" >&2; exit 1; }; } \
  && test -x /opt/tds-ls/node_modules/@totvs/tds-ls/bin/linux/advpls || chmod +x /opt/tds-ls/node_modules/@totvs/tds-ls/bin/linux/advpls
 
 # ---------------------------------------------------------------------------
@@ -81,16 +86,21 @@ RUN printf '#!/bin/sh\nexec /opt/chrome/chrome --no-sandbox "$@"\n' > /usr/bin/g
  && ln -s /opt/tds-ls/node_modules/@totvs/tds-ls/bin/linux/advpls /usr/local/bin/advpls \
  && for b in node npm npx; do ln -s /opt/node/bin/$b /usr/local/bin/$b; done
 
-# TIR em venv proprio (exige Python 3.12, que e o do Ubuntu 24.04).
-RUN python3 -m venv /opt/lab/venv \
- && /opt/lab/venv/bin/pip install "tir_framework==${TIR_VERSION}" \
+# TIR em venv proprio (exige Python 3.12, que e o do Ubuntu 24.04). Todas as dependencias vem do
+# lab/deps/requirements.lock, com hash (--require-hashes); o lock tem de trazer as versoes de
+# TIR_VERSION e PLAYWRIGHT_VERSION (ver lab/deps/README.md).
+COPY lab/deps/requirements.lock /tmp/requirements.lock
+RUN { grep -q "^tir-framework==${TIR_VERSION} " /tmp/requirements.lock \
+      && grep -q "^playwright==${PLAYWRIGHT_VERSION} " /tmp/requirements.lock; } \
+      || { echo "requirements.lock sem tir-framework==${TIR_VERSION} ou playwright==${PLAYWRIGHT_VERSION}" >&2; exit 1; } \
+ && python3 -m venv /opt/lab/venv \
+ && /opt/lab/venv/bin/pip install --require-hashes --no-deps -r /tmp/requirements.lock \
  && /opt/lab/venv/bin/python -c "import tir" \
- && /opt/lab/venv/bin/pip install "playwright==${PLAYWRIGHT_VERSION}" \
  && /opt/lab/venv/bin/python -c "import playwright.sync_api" \
  && d=$(/opt/lab/venv/bin/python -c "import tir, os; print(os.path.dirname(tir.__file__))")/technologies/core/drivers/linux \
  && mkdir -p "$d" && ln -s /opt/chromedriver/chromedriver "$d/chromedriver.exe" \
  && apt-get purge -y build-essential python3-dev unixodbc-dev && apt-get autoremove -y \
- && rm -rf /var/lib/apt/lists/* /root/.cache
+ && rm -rf /var/lib/apt/lists/* /root/.cache /tmp/requirements.lock
 
 # A imagem base traz o usuario "ubuntu" com UID 1000; o lab usa esse UID com nome "lab".
 RUN userdel -r ubuntu 2>/dev/null || true \
