@@ -215,6 +215,21 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   usuário. Achados de passagem (WARN a cada 10 s causado pelo healthcheck; AppServer reconectando
   com `FAILED TO NOTIFY THREAD RELEASE`) registrados na issue #27, sem correção aplicada.
 
+## Includes da 2510 (04/11/2026, issue #5)
+
+- A imagem AppServer 2510 não tem nenhum `.ch` (a 2610 tem 139). Não há fonte pública oficial: a
+  TOTVS distribui pelo Portal do Cliente. O dono indicou os includes do pacote de fontes padrão da
+  2510 que ele tem no Drive (167 `.ch`, formato `#zip` como os da imagem 2610).
+- Novo `plab includes 2510 <pasta>` (bash e PowerShell): copia a pasta para o volume local
+  `plab-lab_includes-2510` (com links de nome em maiúsculas e minúsculas e sentinela), montado
+  somente leitura no lab. Nada é versionado. O `compile.sh` usa `PLAB_INCLUDES`, depois os da
+  release, depois os da imagem 2610, e escreve na 1ª linha do `compile.log` qual conjunto usou.
+- Verificação: `plab.ps1 includes 2510 <pasta do Drive>` → 167 `.ch`, 196 links; `lab compile 2510`
+  de um fonte com `#include "protheus.ch"` e `"totvs.ch"` → SUCCESS; com include inexistente →
+  `C2090 File not found`. `plab smoke 2510` PRONTO (5 passos, log com "includes da 2510") e
+  `plab smoke 2610` PRONTO (log com "includes da imagem 2610"). O fonte de teste LABINC ficou no
+  RPO de compilação da 2510 do lab.
+
 ## Divulgação
 
 - 03/11/2026 (autorizado pelo dono: "já pode fazer agora no LinkedIn"), conta Daniel Montagna:

@@ -50,9 +50,11 @@ Compila no **ambiente de compilação** da release (`PLAB_<release>_ENV_COMPILA`
 
 ## Limites conhecidos (verificados em 02/11/2026)
 
-- Os includes do Protheus vêm do volume `includes`, semeado a partir da imagem AppServer 2610 que o
-  próprio usuário baixou. O advpls exige escrita no diretório de includes e nomes em maiúsculas, por
-  isso o comando usa uma cópia temporária com links em maiúsculas.
+- Ordem dos includes: `PLAB_INCLUDES`, se informado; senão os da própria release no volume
+  `includes-<rel>` (semeado pelo dono no host com `plab includes 2510 <pasta>`, hoje só a 2510);
+  senão o volume `includes`, semeado da imagem AppServer 2610. A 1ª linha do `compile.log` diz qual
+  conjunto foi usado e avisa quando a 2510 compila com os da 2610. O advpls exige escrita no
+  diretório de includes e nomes em maiúsculas, por isso o comando usa uma cópia temporária.
 - O advpls tenta primeiro conexão segura; o comando ignora SIGPIPE para ele cair na convencional.
 - Com `PLAB_EVID_DIR` definido, grava `compile.log` (sem senha) como evidência.
 

@@ -1,6 +1,6 @@
 # plab.ps1 - wrapper do host para o Protheus 2610 Lab (Windows PowerShell 5.1+).
 # Contrato: specs/001-protheus-2610-lab/contracts/plab-cli.md
-# Uso: .\plab.ps1 <net|ports|up|down|status|logs|smoke|restart|snapshot|snapshots|restore|snapshot-rm|setup|scan> [alvo] [opcoes]
+# Uso: .\plab.ps1 <net|ports|up|down|status|logs|smoke|restart|snapshot|snapshots|restore|snapshot-rm|includes|setup|scan> [alvo] [opcoes]
 
 param(
     [Parameter(Position = 0)] [string] $Comando = 'help',
@@ -373,6 +373,40 @@ function Cmd-Copias([string] $cCmd, [string] $cRel, [string] $cNome) {
     exit 0
 }
 
+# Includes da TOTVS NAO vem no repositorio nem nas imagens da 2510: o usuario aponta uma pasta
+# sua (ex.: os includes do pacote de fontes padrao da release) e eles vao para o volume local
+# plab-lab_includes-<rel>, montado somente leitura no lab. Nada e versionado.
+function Cmd-Includes([string] $cRel, [string] $cDir) {
+    if ($cRel -ne '2510') { Sair 2 'use: includes 2510 <pasta-com-os-.ch> (a 2610 usa os includes da propria imagem)' }
+    if (-not $cDir -or -not (Test-Path -LiteralPath $cDir -PathType Container)) { Sair 2 "pasta nao encontrada: '$cDir'" }
+    if (-not (Get-ChildItem -LiteralPath $cDir -Filter 'prtopdef.ch' -File)) {
+        Sair 4 'a pasta nao tem PRTOPDEF.CH: nao parece um diretorio de includes do Protheus'
+    }
+    Testar-Docker
+    & docker image inspect plab-lab:local *> $null
+    if ($LASTEXITCODE -ne 0) { Sair 3 "imagem plab-lab:local ausente: rode '.\plab.ps1 up lab' antes" }
+    $cVol = "plab-lab_includes-$cRel"
+    if (-not (Volume-Existe $cVol)) {
+        & docker volume create --label com.docker.compose.project=plab-lab --label "com.docker.compose.volume=includes-$cRel" $cVol | Out-Null
+    }
+    & docker run --rm --network none --user 0 -v "${cVol}:/dst" --entrypoint bash plab-lab:local -c 'find /dst -mindepth 1 -delete'
+    if ($LASTEXITCODE -ne 0) { Sair 5 "falha ao limpar o volume $cVol" }
+    $cId = & docker create --network none --user 0 -v "${cVol}:/dst" --entrypoint bash plab-lab:local /tmp/includes-semear.sh /dst
+    if ($LASTEXITCODE -ne 0) { Sair 5 'falha ao criar o container auxiliar' }
+    $cOrigem = (Resolve-Path -LiteralPath $cDir).ProviderPath.TrimEnd('\') + '\.'
+    $cScript = Join-Path $cRaiz 'lab\bin\lib\includes-semear.sh'
+    $lOk = $false
+    & docker cp $cOrigem "${cId}:/dst/" | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        & docker cp $cScript "${cId}:/tmp/includes-semear.sh" | Out-Null
+        if ($LASTEXITCODE -eq 0) { & docker start -a $cId; $lOk = ($LASTEXITCODE -eq 0) }
+    }
+    & docker rm -f $cId *> $null
+    if (-not $lOk) { Sair 5 "falha ao copiar os includes para $cVol" }
+    Write-Host "includes da $cRel prontos no volume $cVol. Se o lab estava no ar: .\plab.ps1 up lab"
+    exit 0
+}
+
 function Ajuda {
     @'
 plab - Protheus 2610 Lab
@@ -388,6 +422,7 @@ plab - Protheus 2610 Lab
   .\plab.ps1 snapshots <rel>           lista as copias da base
   .\plab.ps1 restore <rel> <nome>      volta a base para a copia (GRAVA no banco do lab)
   .\plab.ps1 snapshot-rm <rel> <nome>  apaga uma copia
+  .\plab.ps1 includes 2510 <pasta>     copia os includes (.ch) da sua pasta para o lab (nao versiona)
   .\plab.ps1 setup                     assistente "lab setup"
   .\plab.ps1 scan                      varredura de segredos
 '@
@@ -404,6 +439,7 @@ switch ($Comando) {
     'restart' { Ler-Env | Out-Null; exit (Cmd-Restart $Alvo) }
     { $_ -in 'snapshot', 'restore' } { Cmd-Copia-Base (Ler-Env) $Comando $Alvo $Servico }
     { $_ -in 'snapshots', 'snapshot-rm' } { Ler-Env | Out-Null; Cmd-Copias $Comando $Alvo $Servico }
+    'includes' { Ler-Env | Out-Null; Cmd-Includes $Alvo $Servico }
     'setup'  { Ler-Env | Out-Null; exit (Cmd-Lab @('setup') $true) }
     'scan'   { & (Join-Path $cRaiz 'lab\bin\plab-scan.ps1'); exit $LASTEXITCODE }
     default  { Ajuda; if ($Comando -ne 'help') { exit 2 } }
