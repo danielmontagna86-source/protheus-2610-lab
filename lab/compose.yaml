@@ -73,6 +73,9 @@ services:
       - ../workspace:/workspace
       - ../evidencias:/opt/plab/evidencias
       - includes:/opt/plab-includes:ro
+      # Includes da 2510, semeados pelo usuario com 'plab includes 2510 <pasta>' (a imagem
+      # AppServer 2510 nao traz .ch). Vazio: o compile.sh usa os da 2610 e avisa.
+      - includes-2510:/opt/plab-includes-2510:ro
     # Senhas chegam como arquivo em /run/secrets (nao aparecem em docker inspect).
     secrets:
       - plab_2610_admin_password
@@ -89,6 +92,7 @@ secrets:
 volumes:
   lab-home:
   includes:
+  includes-2510:
 
 networks:
   plab:

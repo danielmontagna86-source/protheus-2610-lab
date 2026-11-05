@@ -78,6 +78,7 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 | `plab restart <rel>` | — | reinicia só o AppServer e roda o doctor |
 | `plab snapshot <rel> [nome]` / `plab restore <rel> <nome>` | — | copia o volume do banco da release e volta para a cópia (a release fica parada durante a operação); `plab snapshots <rel>` lista, `plab snapshot-rm <rel> <nome>` apaga. Use antes de testes que gravam |
 | `plab setup` | `lab setup` | assistente de IA (ver abaixo) |
+| `plab includes 2510 <pasta>` | — | copia os includes (`.ch`) de uma pasta sua para o volume `includes-2510` do lab; a 2510 passa a compilar com eles. Nada vai para o repositório |
 | `plab scan` | — | varredura de segredos (git, imagem, container, evidências) |
 | — | `lab doctor <rel>` | DNS, porta, WebApp, `/app-root`, REST, senha |
 | — | `lab compile <rel> <fontes>` | compila no ambiente de compilação (P2610_COMPILA / P2510D) |
@@ -184,7 +185,10 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 - **RPO de compilação da 2610.** O AppServer Linux usa caminhos em minúsculas, e a imagem traz
   `P2610_COMPILA/APO0002`. O serviço `rpo-init` semeia o volume em `p2610_compila/apo0002`.
 - **Includes.** Os `.ch` da TOTVS não vêm no repositório. O serviço `includes-init` copia os 158
-  includes da imagem AppServer 2610 que você baixou, com nomes também em maiúsculas.
+  includes da imagem AppServer 2610 que você baixou, com nomes também em maiúsculas. Para a 2510,
+  cuja imagem não traz `.ch`, use `plab includes 2510 <pasta>` com os includes que você já tem (por
+  exemplo, os do pacote de fontes padrão da release). O `lab compile` registra no log qual conjunto
+  usou e avisa quando compila a 2510 com os da 2610.
 - **Playwright complementa o TIR.** Ele usa o mesmo Chrome 156 da imagem, sem baixar outro navegador.
 
 ## Problemas conhecidos
@@ -213,9 +217,11 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
    rode `docker exec plab-lab-lab-1 lab procedures 2610 08` e em seguida `plab restart 2610`.
    O comando grava no banco do lab; `plab down 2610 --volumes` volta ao estado da imagem. Detalhes
    em `skills/testes-protheus/references/procedures.md`.
-6. **Includes só da 2610.** A imagem AppServer da 2510 não traz os `.ch`; o `includes-init` copia os
-   da imagem 2610 e eles são usados também para compilar na 2510 (o LABHELLO compila nas duas).
-   Quem usa só a 2510 ainda precisa baixar a imagem AppServer 2610.
+6. **Includes da 2510 vêm de você.** A imagem AppServer da 2510 não traz nenhum `.ch`. Sem
+   `plab includes 2510 <pasta>`, a 2510 compila com os includes da imagem 2610 (o LABHELLO compila
+   nas duas) e quem usa só a 2510 ainda precisa baixar a imagem AppServer 2610. Verificado em
+   04/11/2026 com os 167 includes do pacote de fontes padrão da 2510: `#include "protheus.ch"` e
+   `"totvs.ch"` compilam, e um include inexistente falha com `C2090`.
 7. **Linux nativo não testado.** A plataforma verificada é Windows 11 + Docker Desktop. O usuário
    `lab` tem UID 1000; no Docker Engine Linux, se o seu UID for outro, `workspace/` e `evidencias/`
    precisam permitir escrita para o UID 1000.

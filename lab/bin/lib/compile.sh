@@ -74,10 +74,22 @@ if [ "${PIPESTATUS[1]}" -ne 0 ]; then
   erro "o script do advpls nao pode ser gravado em CP1252: usuario, senha ou caminho com caractere fora do CP1252. Troque a senha do $usuario da $rel por uma so com caracteres CP1252 e atualize PLAB_${rel}_ADMIN_PASSWORD no .env."
   exit 23
 fi
-inc_origem=${PLAB_INCLUDES:-/opt/plab-includes}
+# Includes: PLAB_INCLUDES, se informado; senao os da propria release (volume semeado por
+# 'plab includes <rel> <pasta>', com a sentinela .plab-seeded); senao os da imagem 2610.
+if [ -n "${PLAB_INCLUDES:-}" ]; then
+  inc_origem=$PLAB_INCLUDES; inc_rotulo="PLAB_INCLUDES"
+elif [ -f "/opt/plab-includes-$rel/.plab-seeded" ]; then
+  inc_origem="/opt/plab-includes-$rel"; inc_rotulo="da $rel (plab includes)"
+else
+  inc_origem=/opt/plab-includes; inc_rotulo="da imagem 2610"
+fi
 [ -f "$inc_origem/PRTOPDEF.CH" ] || [ -f "$inc_origem/prtopdef.ch" ] || {
   erro "includes ausentes em $inc_origem (rode no host: plab up lab, que semeia o volume includes)"; exit 4; }
 cp -a "$inc_origem/." "$tmp/include/"
+rm -f "$tmp/include/.plab-seeded"
+inc_linha="includes $inc_rotulo: $inc_origem"
+[ "$rel" != 2610 ] && [ "$inc_rotulo" = "da imagem 2610" ] && \
+  inc_linha="$inc_linha (aviso: includes da 2610 compilando na $rel; use 'plab includes $rel <pasta>')"
 unset senha
 
 log="$tmp/compile.log"
@@ -85,7 +97,8 @@ log="$tmp/compile.log"
 # morre por SIGPIPE (rc 141, sem log). Ignorar SIGPIPE (herdado no exec) deixa ele cair para
 # a conexao convencional, como ele mesmo faz quando sobrevive.
 limite=${PLAB_COMPILE_TIMEOUT:-300}
-( trap '' PIPE; exec timeout "$limite" advpls cli "$script" ) > "$log" 2>&1
+echo "$inc_linha" > "$log"
+( trap '' PIPE; exec timeout "$limite" advpls cli "$script" ) >> "$log" 2>&1
 rc=$?
 [ "$rc" -eq 124 ] && echo "[ERROR] advpls excedeu ${limite}s (PLAB_COMPILE_TIMEOUT) e foi interrompido" >> "$log"
 
