@@ -145,9 +145,54 @@ def parametros_iniciais(pagina, url, ambiente, programa="SIGAMDI"):
     ok.click()
 
 
+_WEBSOCKETS = {}  # id(pagina) -> lista de contadores por websocket (diagnostico da issue #21)
+
+
+def observar_websockets(pagina):
+    """Conta quadros enviados/recebidos de cada websocket da pagina, desde antes do login. Guarda so
+    quantidade e bytes, nunca o conteudo (os quadros levam usuario e senha)."""
+    if id(pagina) in _WEBSOCKETS:
+        return
+    sockets = _WEBSOCKETS[id(pagina)] = []
+
+    def _novo(ws):
+        cont = {"url": ws.url.split("?", 1)[0], "env": 0, "env_b": 0, "rec": 0, "rec_b": 0, "fechado": False}
+        sockets.append(cont)
+
+        def _enviado(dado):
+            cont["env"] += 1
+            cont["env_b"] += len(dado)
+
+        def _recebido(dado):
+            cont["rec"] += 1
+            cont["rec_b"] += len(dado)
+
+        ws.on("framesent", _enviado)
+        ws.on("framereceived", _recebido)
+        ws.on("close", lambda _ws: cont.update(fechado=True))
+
+    pagina.on("websocket", _novo)
+
+
+def _quadros(pagina):
+    return [dict(c) for c in _WEBSOCKETS.get(id(pagina), [])]
+
+
+def _delta_quadros(antes, depois):
+    linhas = []
+    for i, d in enumerate(depois):
+        a = antes[i] if i < len(antes) else {"env": 0, "env_b": 0, "rec": 0, "rec_b": 0}
+        linhas.append(f"websocket {d['url']}: enviados {d['env'] - a['env']} ({d['env_b'] - a['env_b']} B), "
+                      f"recebidos {d['rec'] - a['rec']} ({d['rec_b'] - a['rec_b']} B); "
+                      f"antes do clique: enviados {a['env']}, recebidos {a['rec']}"
+                      f"{', fechado' if d['fechado'] else ''}")
+    return linhas or ["nenhum websocket observado na pagina"]
+
+
 def entrar(pagina, url, ambiente, usuario, senha, tentativas=3):
     """Parametros iniciais + login PO UI, repetindo se o iframe do login vier como pagina de erro
     (observado logo apos uma compilacao: o /app-root demora a responder)."""
+    observar_websockets(pagina)
     for tentativa in range(1, tentativas + 1):
         parametros_iniciais(pagina, url, ambiente)
         try:
@@ -243,7 +288,10 @@ def entrar_sessao(pagina, cfg, tentativas=1, espera_ms=60_000):
     'Nao foi possivel enviar a requisicao' com a tela ainda aberta. Visto na 2610 em 03 e
     04/11/2026, de 1 a 2 sessoes em 6; causa nao confirmada. No lab, repetir o clique nunca abriu a
     sessao (3 de 3 falharam): por isso o padrao e 1 tentativa, e quem resolve e o 'lab cenarios' ou o
-    'lab smoke', que refazem desde o login ao ver "aviso de requisicao" na saida."""
+    'lab smoke', que refazem desde o login ao ver "aviso de requisicao" na saida.
+    Diagnostico (issue #21, 05/11/2026): o 'Entrar' vai pelo websocket do WebApp, nao por HTTP. Com
+    o aviso, 0 quadros enviados e 0 recebidos (5 de 5); sem aviso, 12 a 20 em cada sentido (29 de 29).
+    O WebApp desiste no navegador, antes de enviar. PLAB_DIAG_SESSAO=sim imprime tambem os logins bons."""
     botao = cfg.get_by_role("button", name=re.compile(r"^\s*Entrar\s*$"))
 
     def aviso_visivel():
@@ -257,9 +305,50 @@ def entrar_sessao(pagina, cfg, tentativas=1, espera_ms=60_000):
                 continue
         return False
 
+    # Diagnostico da issue #21, impresso so quando o aviso aparece: o que aconteceu na rede e no
+    # console durante o "Entrar". Guarda metodo, caminho (sem query, que pode levar token), codigo,
+    # eventos de websocket e erros do console (cortados), nunca corpo de requisicao ou mensagem.
+    falhas = []
+
+    def _caminho(url):
+        return url.split("?", 1)[0].split("#", 1)[0]
+
+    def _falhou(req):
+        falhas.append(f"{req.method} {_caminho(req.url)} -> falhou: {req.failure}")
+
+    def _resposta(resp):
+        falhas.append(f"{resp.request.method} {_caminho(resp.url)} -> HTTP {resp.status}")
+
+    def _console(msg):
+        if msg.type in ("error", "warning"):
+            falhas.append(f"console {msg.type}: {' '.join(msg.text.split())[:200]}")
+
+    def _websocket(ws):
+        falhas.append(f"websocket aberto {_caminho(ws.url)}")
+        ws.on("close", lambda _ws: falhas.append(f"websocket fechado {_caminho(ws.url)}"))
+        ws.on("socketerror", lambda erro: falhas.append(f"websocket erro {_caminho(ws.url)}: {erro}"))
+
+    eventos = (("requestfailed", _falhou), ("response", _resposta), ("console", _console),
+               ("websocket", _websocket))
+    for nome_ev, func in eventos:
+        pagina.on(nome_ev, func)
+    try:
+        _entrar_sessao(pagina, cfg, botao, aviso_visivel, falhas, tentativas, espera_ms)
+    finally:
+        for nome_ev, func in eventos:
+            pagina.remove_listener(nome_ev, func)
+        if os.environ.get("PLAB_DIAG_SESSAO") == "sim":  # para comparar com uma entrada que deu certo
+            for item in falhas[:40]:
+                print(f"[ui] rede/console no Entrar: {item}", flush=True)
+
+
+def _entrar_sessao(pagina, cfg, botao, aviso_visivel, falhas, tentativas, espera_ms):
     for tentativa in range(1, tentativas + 1):
+        falhas.clear()
+        antes = _quadros(pagina)
         botao.click()
         fim = time.time() + espera_ms / 1000.0
+        aviso = False
         while time.time() < fim:
             try:
                 # Sucesso = o menu do WebApp apareceu (ou o iframe da sessao saiu). Nao basta o botao
@@ -267,16 +356,20 @@ def entrar_sessao(pagina, cfg, tentativas=1, espera_ms=60_000):
                 # aviso (04/11/2026). O iframe da sessao nao e removido no sucesso: esperar por isso
                 # custava o prazo inteiro em todo login.
                 if cfg.is_detached() or pagina.evaluate(_JS_MENU_VISIVEL):
-                    return
+                    break
                 if aviso_visivel() and botao.is_visible():
+                    aviso = True
                     break
             except Exception:  # noqa: BLE001  (frame trocando ou desanexado: a sessao abriu)
-                return
+                break
             pagina.wait_for_timeout(500)
-        else:
-            return  # sem aviso no prazo: quem chamou confere o menu
+        falhas.extend(_delta_quadros(antes, _quadros(pagina)))
+        if not aviso:
+            return  # sessao aberta, ou sem aviso no prazo: quem chamou confere o menu
         print(f"[ui] aviso de requisicao na tela de sessao (tentativa {tentativa} de {tentativas}): "
               f"'{AVISO_REQUISICAO}'", flush=True)
+        for item in falhas[:40]:
+            print(f"[ui] rede/console no aviso: {item}", flush=True)
         if tentativa == tentativas:
             return
         # Espera o aviso sumir: senao a proxima tentativa veria o aviso antigo e desistiria na hora.

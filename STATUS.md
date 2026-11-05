@@ -148,6 +148,15 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   sessão. `lab menus 2610 2`: 20 sessões, 20 grupos, completo: sim, 39 min. `lab menus-diff 2` em
   Atualizações: 26 itens só na 2610 (Controle Orçamentário com 6 subgrupos, Dados Adicionais e
   Características do Produto), 0 só na 2510, Cadastros 30 × 28.
+- Issue #21 (aviso "Não foi possível enviar a requisição" no Entrar da 2610), diagnóstico em
+  05/11/2026: 4 baterias de leitura de 31 cenários, aviso em 3 a 6 cenários por bateria; refazer
+  desde o login resolve quase sempre, mas em 2 das 4 baterias 1 ou 2 cenários falharam porque o
+  aviso voltou na repetição. O
+  `Entrar` vai pelo websocket do WebApp: nenhuma requisição HTTP nem erro de console em nenhum dos
+  casos; com o aviso, 0 quadros enviados e 0 recebidos (5 de 5); sem aviso, 12 a 20 em cada
+  sentido (29 de 29). O WebApp desiste no navegador antes de enviar; causa no cliente do WebApp 26,
+  não confirmada. `plab_pw.entrar_sessao` registra isso no aviso (`PLAB_DIAG_SESSAO=sim` também nos
+  logins bons).
 - **Incidente**: a primeira versão do `plab snapshot/restore` (não publicada) copiava a base com
   `CREATE DATABASE ... TEMPLATE`. Depois do restore a 2610 recusou todo login com "O tipo do ambiente
   encontrado está inválido, é necessária uma redefinição no Configurador". As tabelas eram idênticas;
