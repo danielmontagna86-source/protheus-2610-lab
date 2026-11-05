@@ -762,10 +762,11 @@ def confirmar_formulario(pagina, botao="Confirmar", titulo_form="", campo_reabre
 
 _JS_CELULA = """([coluna, linha]) => {
   // Centro da celula (coluna pelo titulo do cabecalho, linha 1 = 1o item) da grade de itens
-  // (wa-tgetdados) do formulario em primeiro plano: a ultima visivel no DOM.
+  // (wa-tgetdados nas telas antigas, wa-tgrid no MVC) do formulario em primeiro plano: a ultima
+  // visivel no DOM que tenha a coluna.
   let alvo = null;
   const deep = (root) => root.querySelectorAll('*').forEach(e => {
-    if (e.tagName.toLowerCase() === 'wa-tgetdados') { const b = e.getBoundingClientRect();
+    if (['wa-tgetdados', 'wa-tgrid'].includes(e.tagName.toLowerCase())) { const b = e.getBoundingClientRect();
       if (b.width > 50 && b.height > 20) { const trs = (e.shadowRoot || e).querySelectorAll('tr');
         if (trs.length > linha) { const cab = Array.from(trs[0].children).map(c => c.innerText.trim());
           const k = cab.indexOf(coluna);
@@ -777,7 +778,7 @@ _JS_CELULA = """([coluna, linha]) => {
 
 
 def preencher_celula(pagina, coluna, valor, linha=1):
-    """Grade de itens (wa-tgetdados, telas antigas como a MATA110): clica na celula, digita (a
+    """Grade de itens (wa-tgetdados nas telas antigas como a MATA110, wa-tgrid no MVC): clica na celula, digita (a
     digitacao abre o editor do campo, ex.: M->C1_PRODUTO) e confirma com Enter. Confere o texto
     da celula depois."""
     for _ in range(3):

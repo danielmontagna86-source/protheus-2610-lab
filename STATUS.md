@@ -230,6 +230,23 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   `plab smoke 2610` PRONTO (log com "includes da imagem 2610"). O fonte de teste LABINC ficou no
   RPO de compilação da 2510 do lab.
 
+## Alçada do Pedido de Compra (05/11/2026, issue #16)
+
+- Pedido do dono: "planeje e execute o que francisco pediu" e "siga até o final". Cópias antes:
+  `antes_alcada_20261104` (2510) e `antes_alcada_20261105` (2610); `plab restore` nas duas no fim,
+  conferido por SQL (sem aprovadores, 1 usuário, `MV_APRPCEC = F`, nenhum PC novo).
+- Configuração pela interface (usuário `labapr1`, perfis, aprovadores, grupos com centro de custo);
+  só `MV_APRPCEC = T` foi ligado por SQL. Roteiros em `cenarios/ui-alcada/`, resultado em
+  `docs/propostas/alcada-compras.md`.
+- Resultado igual nas duas releases: o centro de custo do item escolhe o grupo (AL1/AL2); o
+  pedido acima do teto do perfil entra **liberado sem alçada** (AL3); a ausência por "Pendências de
+  subordinados" transfere a pendência ao superior e guarda o aprovador original (AL4).
+- Diferença entre releases: "Substituição de Aprovadores" é uma tela nova na 2610 e na 2510 exige
+  Smart Schedule (Help `A230CONFIG`).
+- Base 2610: 25 sequências de RECNO atrasadas fazem a inclusão de usuário cair com chave duplicada
+  (issue #30); ajustadas só no banco do lab para o teste.
+- `plab_pw.preencher_celula` passa a achar células em grade MVC (`wa-tgrid`).
+
 ## Divulgação
 
 - 03/11/2026 (autorizado pelo dono: "já pode fazer agora no LinkedIn"), conta Daniel Montagna:

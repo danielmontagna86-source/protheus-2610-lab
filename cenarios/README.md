@@ -5,7 +5,7 @@ rotina padrão, conferem o browse e saem pelo "Log Off → Finalizar". Nada é g
 Cancelar, "Novidades do Produto" usa Fechar e o aviso MV_1DUP da base é fechado com Esc.
 A tela "Parametros" (Pergunte), quando o cenário pede, é confirmada com OK sem alterar nenhum
 campo: isso só guarda as respostas padrão no perfil de perguntas do usuário, nenhum dado de negócio.
-Os de `ui-gravacao/` são a exceção: gravam no banco do lab e só rodam com autorização e cópia da base.
+Os de `ui-gravacao/` e `ui-alcada/` são a exceção: gravam no banco do lab e só rodam com autorização e cópia da base.
 
 | Pasta | O que é | Comando |
 |---|---|---|
@@ -13,6 +13,7 @@ Os de `ui-gravacao/` são a exceção: gravam no banco do lab e só rodam com au
 | `ui-smoke/` | smoke de interface (Playwright): MATA010 | `lab ui <rel>` |
 | `ui-leitura/` | 31 cenários de leitura em `cenarios.json` | `lab cenarios <rel> [nome]` |
 | `ui-gravacao/` | 4 cenários que **gravam** e revertem (inclui e exclui um registro de teste) | `lab gravacoes <rel> [nome]` (ver `ui-gravacao/README.md`) |
+| `ui-alcada/` | alçada do Pedido de Compra: centro de custo, limite do perfil e ausência do aprovador (**grava**) | roteiros em ordem (ver `ui-alcada/README.md`) |
 | `tir-smoke/` | a mesma MATA010 em TIR (bloqueada no WebApp 26, totvs/tir#2169) | `lab tir <rel> /opt/plab/cenarios/tir-smoke/SMOKETESTSUITE.py` |
 
 ## Cenários de leitura
