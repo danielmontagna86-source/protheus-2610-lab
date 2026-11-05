@@ -143,6 +143,11 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   componente mapeia os 13 grupos de Atualizações do módulo Compras (completo: sim); na 2610 o mapa
   continua parcial (issue #20). Diferenças já vistas: Controle Orçamentário, Dados Adicionais do
   Produto e Características do Produto só na 2610; Cadastros 30 × 28.
+- Issue #20 resolvida em 05/11/2026: na 2610 o `lab menus` passou a abrir uma sessão por grupo
+  (`lab/tir/mapear_por_grupo.py`); se um grupo falhar e tiver subgrupos, cada subgrupo vira uma
+  sessão. `lab menus 2610 2`: 20 sessões, 20 grupos, completo: sim, 39 min. `lab menus-diff 2` em
+  Atualizações: 26 itens só na 2610 (Controle Orçamentário com 6 subgrupos, Dados Adicionais e
+  Características do Produto), 0 só na 2510, Cadastros 30 × 28.
 - **Incidente**: a primeira versão do `plab snapshot/restore` (não publicada) copiava a base com
   `CREATE DATABASE ... TEMPLATE`. Depois do restore a 2610 recusou todo login com "O tipo do ambiente
   encontrado está inválido, é necessária uma redefinição no Configurador". As tabelas eram idênticas;
