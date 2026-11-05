@@ -25,7 +25,7 @@ em compose ou rede e precisam de `plab up`, `plab smoke` e `lab cenarios` na má
 | M4 cobertura do `plab scan` | resolvido | `plab-scan` verifica segredos do container lab e marca `N/VER` quando não consegue verificar |
 | M5 contratos × código | resolvido | contrato do smoke: interface (Playwright) antes da compilação, códigos 11–14 |
 | M6 doctor sem License/DBAccess | resolvido | `doctor.sh` testa TCP de License Server (5555) e DBAccess (7890), códigos 36–37 |
-| M7 downloads sem checksum | parcial, issue | Node e Chrome/chromedriver com `sha256sum -c`; pip e npm ainda sem lock |
+| M7 downloads sem checksum | resolvido (05/11/2026) | Node e Chrome/chromedriver com `sha256sum -c`; pip pelo `lab/deps/requirements.lock` (`--require-hashes`) e `tds-ls` por `npm ci` com `package-lock.json` (issue #4) |
 | M8 bind mounts no Linux | resolvido | `plab` cria `workspace/` e `evidencias/` antes de subir |
 | M9 logs do TIR | resolvido | `tir.sh` procura o segredo antes de copiar e usa `evidencias/` por padrão |
 | M10 includes da 2610 na 2510 | issue | volume de includes único |
