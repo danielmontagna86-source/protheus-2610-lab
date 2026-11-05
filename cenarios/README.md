@@ -13,7 +13,7 @@ Os de `ui-gravacao/` e `ui-alcada/` são a exceção: gravam no banco do lab e s
 | `ui-smoke/` | smoke de interface (Playwright): MATA010 | `lab ui <rel>` |
 | `ui-leitura/` | 31 cenários de leitura em `cenarios.json` | `lab cenarios <rel> [nome]` |
 | `ui-gravacao/` | 4 cenários que **gravam** e revertem (inclui e exclui um registro de teste) | `lab gravacoes <rel> [nome]` (ver `ui-gravacao/README.md`) |
-| `ui-alcada/` | alçada do Pedido de Compra: centro de custo, limite do perfil e ausência do aprovador (**grava**) | roteiros em ordem (ver `ui-alcada/README.md`) |
+| `ui-alcada/` | alçada do Pedido de Compra: centro de custo, limite do perfil, ausência do aprovador e Substituição de Aprovadores da 2610 (**grava**) | roteiros em ordem (ver `ui-alcada/README.md`) |
 | `tir-smoke/` | a mesma MATA010 em TIR (bloqueada no WebApp 26, totvs/tir#2169) | `lab tir <rel> /opt/plab/cenarios/tir-smoke/SMOKETESTSUITE.py` |
 
 ## Cenários de leitura

@@ -111,11 +111,20 @@ with pw.navegador() as pg:
                 ev.captura(f"perfil-{codigo}")
                 confirmar(pg, "Perfil de Aprovadores - INCLUIR")
         elif etapa == "aprovadores":
-            for usuario, superior, limite in (("000000", "", "1000000,00"), ("000001", "000001", "1000,00")):
+            # Os codigos vem da numeracao do sistema, que nao volta com o plab restore: o do Admin
+            # e lido na hora e vira o superior. AL_USR = SYS_USR.USR_ID do labapr1; AL_APR_ADMIN =
+            # codigo do Admin se ele ja for aprovador (um usuario so pode ser aprovador uma vez).
+            usr_teste = os.environ.get("AL_USR", "000001")
+            sup = os.environ.get("AL_APR_ADMIN", "")
+            fila = [] if sup else [("000000", "", "1000000,00")]
+            fila.append((usr_teste, None, "1000,00"))
+            for usuario, superior, limite in fila:
                 incluir(pg, "M->AK_COD")
                 codigo = pw.campo_input(pg, "M->AK_COD").input_value().strip()
                 pw.preencher(pg, "M->AK_USER", usuario)
                 pg.wait_for_timeout(2_000)
+                if superior is None:
+                    superior = sup
                 if superior:
                     pw.preencher(pg, "M->AK_APROSUP", superior)
                 pw.preencher(pg, "M->AK_LIMITE", limite)
@@ -123,9 +132,13 @@ with pw.navegador() as pg:
                 print(f"[al] aprovador {codigo}: usuario {usuario} ({nome}) superior '{superior}' limite {limite}")
                 ev.captura(f"aprovador-{usuario}")
                 confirmar(pg, "Aprovadores - INCLUIR")
+                if usuario == "000000":
+                    sup = codigo
         elif etapa == "grupos":
-            for descr, aprov, perfil, cc in (("LAB CC MONTAGEM", "000002", "ZZ1", "1.001"),
-                                             ("LAB CC TORNO", "000001", "ZZ2", "1.002")):
+            apr_teste = os.environ.get("AL_APR_TESTE", "000002")
+            apr_admin = os.environ.get("AL_APR_ADMIN", "000001")
+            for descr, aprov, perfil, cc in (("LAB CC MONTAGEM", apr_teste, "ZZ1", "1.001"),
+                                             ("LAB CC TORNO", apr_admin, "ZZ2", "1.002")):
                 incluir(pg, "M->AL_COD")
                 codigo = pw.campo_input(pg, "M->AL_COD").input_value().strip()
                 pw.preencher(pg, "M->AL_DESC", descr)
