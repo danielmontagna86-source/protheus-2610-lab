@@ -14,6 +14,7 @@ base antes e `plab restore` depois. Roteiros em [`cenarios/ui-alcada/`](../../ce
 | AL3 | PC com centro de custo 1.001, R$ 5.000 (acima do teto do perfil de `labapr1`) | **liberado direto, sem nenhuma `SCR`** | igual |
 | AL4 | Ausência: Admin (superior) usa "Pendências de subordinados" → Transferir → aprova | `SCR` passa para o Admin guardando a origem (`CR_APRORI`, `CR_USERORI`); aprovado | igual |
 | AL5 | Menu "Substituição de Aprovadores" | **tela nova (PO UI)** com transferência pontual, temporária e permanente | bloqueada: Help `A230CONFIG` exige Smart Schedule com o agendamento `A230EXECSCHED` |
+| AL6 | Tela nova: transferência **pontual** do PC 000005 do aprovador de teste para o Admin; Admin aprova | "Os documentos foram transferidos com sucesso."; `SCR` passa para o Admin com `CR_APRORI`/`CR_USERORI` e `CR_TPTRAN = 3`; aprovado, `C7_CONAPRO = L` | não se aplica (AL5) |
 
 Conferido por SQL somente leitura (`SC7`, `SCR`, `SAK`, `SAL`, `DBL`, `DHL`) e por capturas das
 telas; evidências em `evidencias/<rel>/alcada-20261105/` (não versionadas).
@@ -29,9 +30,16 @@ telas; evidências em `evidencias/<rel>/alcada-20261105/` (não versionadas).
 - **A ausência funciona igual nas duas releases** pela Liberar de Documentos, sem agendador: a
   transferência leva todas as pendências do aprovador ausente para o superior (a tela avisa antes)
   e a `SCR` guarda quem era o aprovador original.
-- **A Substituição de Aprovadores é a diferença entre releases.** A 2610 trouxe uma tela nova, que
-  abre sem configuração extra; na 2510 a rotina exige o Smart Schedule. A tela nova da 2610 ainda
-  não foi exercitada (próximo passo).
+- **A Substituição de Aprovadores é a diferença entre releases.** A 2610 trouxe uma tela nova (AL6,
+  executada em 05/11/2026 numa segunda cópia da base): em dois passos (aprovador → documentos →
+  substituto) e com uma pergunta de confirmação, a **transferência pontual** funciona sem
+  agendador. A **temporária** continua exigindo o Smart Schedule com o `A230EXECSCHED` (a própria
+  tela avisa), que é o que barra a rotina inteira na 2510. No banco, a transferência pela tela nova
+  grava `CR_TPTRAN = 3`; a da ausência (AL4) deixa o campo vazio, então dá para distinguir as duas.
+- **A numeração não volta com o `plab restore`.** Na segunda rodada (AL6) o usuário de teste veio
+  como `000002` e o Admin virou o aprovador `000003`: os códigos automáticos seguem de onde pararam,
+  mesmo com a base restaurada. Os roteiros leem o código gerado ou recebem por variável (`AL_USR`,
+  `AL_APR_ADMIN`, `AL_APR_TESTE`).
 - **Base da imagem 2610**: 25 tabelas com a sequência de RECNO atrasada fazem qualquer inclusão
   nelas cair com chave duplicada, inclusive a de usuário (issue #30). Para o teste, as sequências
   foram ajustadas só no banco do lab.
@@ -60,5 +68,6 @@ centro de custo do item, pela `DBL`.
 ## Fora deste teste
 
 - Login como `labapr1` (exigiria guardar credencial de teste).
-- A tela nova de Substituição de Aprovadores da 2610.
+- Substituição temporária (exige Smart Schedule) e permanente (troca o aprovador nos grupos) na tela
+  nova da 2610.
 - Aprovação por e-mail/WF, contratos e cotações; alçada da Solicitação de Compras (`MV_APRSCEC`).

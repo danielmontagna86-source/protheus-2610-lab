@@ -246,6 +246,15 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 - Base 2610: 25 sequências de RECNO atrasadas fazem a inclusão de usuário cair com chave duplicada
   (issue #30); ajustadas só no banco do lab para o teste.
 - `plab_pw.preencher_celula` passa a achar células em grade MVC (`wa-tgrid`).
+- Tela nova da 2610 (AL6, mesmo dia, pedido "siga até o final"): cópia `antes_subst_20261105`,
+  alçada montada de novo pelos roteiros, transferência **pontual** do PC 000005 do aprovador de
+  teste para o Admin pela "Substituição de Aprovadores" ("Os documentos foram transferidos com
+  sucesso."; `SCR` com `CR_APRORI`/`CR_USERORI` e `CR_TPTRAN = 3`) e aprovação pelo Admin
+  (`C7_CONAPRO = L`). A temporária exige Smart Schedule também na 2610. `plab restore` no fim,
+  conferido por SQL (sem `SCR`/`SAK`, sem `labapr1`, `MV_APRPCEC = F`; as 2 linhas apagadas do PC
+  000002 na SC7 são da base da imagem, iguais na 2510). Novo roteiro `al_subst.py`.
+- A numeração automática não volta com o `plab restore` (usuário veio `000002`, Admin virou
+  aprovador `000003`): `al_config.py` lê o código gerado ou recebe `AL_USR`/`AL_APR_*`.
 
 ## Divulgação
 
