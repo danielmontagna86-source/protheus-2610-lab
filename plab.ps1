@@ -1,6 +1,6 @@
 # plab.ps1 - wrapper do host para o Protheus 2610 Lab (Windows PowerShell 5.1+).
 # Contrato: specs/001-protheus-2610-lab/contracts/plab-cli.md
-# Uso: .\plab.ps1 <net|ports|up|down|status|logs|smoke|restart|snapshot|snapshots|restore|snapshot-rm|includes|setup|scan> [alvo] [opcoes]
+# Uso: .\plab.ps1 <net|ports|up|down|status|logs|smoke|restart|inicializar|snapshot|snapshots|restore|snapshot-rm|includes|setup|scan> [alvo] [opcoes]
 
 param(
     [Parameter(Position = 0)] [string] $Comando = 'help',
@@ -202,6 +202,12 @@ function Cmd-Up($oEnv, [string] $cAlvoArg) {
         if ($nRet -ne 0) { Sair 5 "$(Projeto $cAlvo) nao ficou healthy. Veja: .\plab.ps1 logs $cAlvo" }
         if ($aReleases -contains $cAlvo) { Renovar-Senha-Admin $cAlvo $oEnv }
     }
+    # Depois de todos os alvos: no "up all" o lab sobe por ultimo.
+    foreach ($cAlvo in (Alvos $cAlvoArg)) {
+        if ($aReleases -contains $cAlvo -and $script:oFonte[$cAlvo] -eq 'reserva') {
+            if ((Inicializar-Reserva $cAlvo) -ne 0) { Write-Warning "base da reserva de $(Projeto $cAlvo) nao inicializada (veja acima)" }
+        }
+    }
     Cmd-Status $oEnv $cAlvoArg
 }
 
@@ -239,6 +245,33 @@ function Cmd-Logs([string] $cAlvoArg) {
     $aArgs = @('logs', '--tail', '200')
     if ($Servico) { $aArgs += $Servico }
     Compose $cAlvoArg $aArgs | Out-Null
+}
+
+# Base vazia da fonte reserva: segue o assistente do Protheus (empresa TESTE 99/01) ate a tela de
+# login, pelo container lab. O script e copiado para o container (docker cp): pela entrada padrao o
+# PowerShell 5.1 trocaria os acentos que o script procura na tela. Roda antes de qualquer acesso ao
+# /app-root/ (ver stacks\reserva\<rel>\compose.yaml).
+function Inicializar-Reserva([string] $cRel) {
+    if (-not (Projeto-Rodando 'lab')) {
+        Write-Warning ("container lab parado; a base da reserva ainda nao foi inicializada. " +
+            "Rode .\plab.ps1 up lab e depois .\plab.ps1 inicializar $cRel, antes de qualquer outro acesso.")
+        return 3
+    }
+    Write-Host "inicializando a base da reserva de $(Projeto $cRel) (assistente do Protheus, cerca de 3 min)..."
+    $aCompose = Args-Compose 'lab'
+    $cId = & docker @aCompose ps -q lab
+    & docker cp (Join-Path $cRaiz 'lab\tir\inicializar_reserva.py') "${cId}:/tmp/inicializar_reserva.py" | Out-Null
+    if ($LASTEXITCODE -ne 0) { return 5 }
+    & docker exec $cId python -u /tmp/inicializar_reserva.py $cRel | Out-Host
+    return $LASTEXITCODE
+}
+
+function Cmd-Inicializar([string] $cRel) {
+    if ($aReleases -notcontains $cRel) { Sair 2 'use: inicializar 2610|2510' }
+    if ($script:oFonte[$cRel] -ne 'reserva') { Sair 2 "inicializar e so para a fonte reserva (PLAB_${cRel}_FONTE=reserva)" }
+    Testar-Docker
+    if (-not (Projeto-Rodando $cRel)) { Sair 3 "plab-$cRel parado. Rode: .\plab.ps1 up $cRel" }
+    if ((Inicializar-Reserva $cRel) -ne 0) { Sair 5 'inicializacao da base da reserva falhou (veja acima)' }
 }
 
 function Cmd-Lab([string[]] $aArgs, [bool] $lInterativo = $false) {
@@ -433,6 +466,7 @@ plab - Protheus 2610 Lab
   .\plab.ps1 logs <alvo> [servico]
   .\plab.ps1 smoke <2610|2510>         smoke dentro do container lab
   .\plab.ps1 restart <2610|2510>       reinicia o AppServer e roda o doctor
+  .\plab.ps1 inicializar <2610|2510>   fonte reserva: inicializa a base vazia (empresa TESTE 99/01)
   .\plab.ps1 snapshot <rel> [nome]     copia o volume do banco da release (para a release durante a copia)
   .\plab.ps1 snapshots <rel>           lista as copias da base
   .\plab.ps1 restore <rel> <nome>      volta a base para a copia (GRAVA no banco do lab)
@@ -452,6 +486,7 @@ switch ($Comando) {
     'logs'   { Ler-Env | Out-Null; Cmd-Logs $Alvo }
     'smoke'  { Cmd-Smoke (Ler-Env) $Alvo }
     'restart' { Ler-Env | Out-Null; exit (Cmd-Restart $Alvo) }
+    'inicializar' { Ler-Env | Out-Null; Cmd-Inicializar $Alvo }
     { $_ -in 'snapshot', 'restore' } { Cmd-Copia-Base (Ler-Env) $Comando $Alvo $Servico }
     { $_ -in 'snapshots', 'snapshot-rm' } { Ler-Env | Out-Null; Cmd-Copias $Comando $Alvo $Servico }
     'includes' { Ler-Env | Out-Null; Cmd-Includes $Alvo $Servico }

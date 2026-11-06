@@ -150,6 +150,11 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 - **Volta à principal:** `PLAB_<rel>_FONTE=principal` + `plab up`. O smoke deu **PRONTO** na 2610
   (`evidencias/2610/20261105-213702`) e na 2510 (`evidencias/2510/20261105-221514`). Volumes da
   principal e snapshots intactos: só os volumes `-reserva` foram apagados ou recriados.
+- **`plab.ps1`:** mesmo ciclo na 2610.
+  - `.\plab.ps1 up 2610` com a reserva: o `inicializar` foi via `docker cp` e chegou ao login com a
+    base já inicializada.
+  - De volta à principal, `plab smoke 2610` deu **PRONTO** (`evidencias/2610/20261105-222357`).
+  - Os erros de uso de `inicializar` (fonte principal, release inválida) saem com código 2.
 
 ## Decisões de governança
 
