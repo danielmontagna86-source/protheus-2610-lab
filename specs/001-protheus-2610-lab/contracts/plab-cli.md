@@ -11,6 +11,7 @@ plab status [alvo]            # estado por serviço + URLs locais
 plab logs <2610|2510|lab> [serviço]
 plab smoke <2610|2510>        # "lab smoke <release>" no container lab (+ passo 5 de recuperação)
 plab restart <2610|2510>      # reinicia só o AppServer, espera healthy e roda o doctor
+plab inicializar <2610|2510>  # só fonte reserva: assistente da base vazia até a tela de login
 plab snapshot <rel> [nome]    # copia o volume do Postgres da release para plab-<rel>_snap_<nome>
 plab snapshots <rel>          # lista as cópias (nome, tamanho, data)
 plab restore <rel> <nome>     # volta a base para a cópia (grava no banco do lab)
@@ -38,6 +39,17 @@ plab ports                    # mostra portas configuradas e se estão livres
   `/opt/plab/skills` somente leitura. Ausente, vazio ou `0`: só `lab/compose.yaml` (padrão, código
   da imagem). As releases ignoram a variável. Vale no `up` seguinte (o container é recriado).
 - `down --volumes` só afeta o project da release pedida (SC-002).
+- `PLAB_<rel>_FONTE` (emenda de 05/11/2026, issue #3): `principal` (padrão) ou `reserva`. Qualquer
+  outro valor → código 2 na leitura do `.env`.
+  - Com `reserva`, os comandos da release usam `stacks/reserva/<rel>/compose.yaml`, com o mesmo
+    project, as mesmas portas e volumes próprios `-reserva`.
+  - `up` passa `--remove-orphans` e, depois de subir todos os alvos, roda `inicializar` em cada
+    release na reserva. Se o lab estiver parado, só avisa.
+  - `snapshot` e `restore` recusam a reserva com código 2.
+  - A renovação da senha do Admin não roda na reserva.
+- `inicializar <rel>`: código 2 se a release não está na reserva, 3 se ela está parada, 5 se o
+  assistente falhou. O script vai para o container lab pela entrada padrão (bash) ou por
+  `docker cp` (PowerShell, que trocaria os acentos na entrada padrão).
 - `snapshot`/`restore`/`snapshots`/`snapshot-rm` (emenda de 03/11/2026): copiam o volume inteiro do
   Postgres da release (`plab-<rel>_pgdata`) para um volume `plab-<rel>_snap_<nome>` (labels
   `com.plab.owner=plab`, `com.plab.snapshot=<rel>`, `com.plab.criada`) e de volta, com

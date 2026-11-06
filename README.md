@@ -76,6 +76,7 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 | `plab status [alvo]` / `plab logs <alvo> [serviço]` | — | estado, URLs e logs |
 | `plab smoke <rel>` | `lab smoke <rel>` | doctor → interface somente leitura → compila LABHELLO → limpeza → PRONTO |
 | `plab restart <rel>` | — | reinicia só o AppServer e roda o doctor |
+| `plab inicializar <rel>` | — | só na fonte reserva: segue o assistente do Protheus na base vazia (empresa TESTE 99/01) até o login; o `plab up` já chama (ver [Fonte reserva](#fonte-reserva)) |
 | `plab snapshot <rel> [nome]` / `plab restore <rel> <nome>` | — | copia o volume do banco da release e volta para a cópia (a release fica parada durante a operação); `plab snapshots <rel>` lista, `plab snapshot-rm <rel> <nome>` apaga. Use antes de testes que gravam |
 | `plab setup` | `lab setup` | assistente de IA (ver abaixo) |
 | `plab includes 2510 <pasta>` | — | copia os includes (`.ch`) de uma pasta sua para o volume `includes-2510` do lab; a 2510 passa a compilar com eles. Nada vai para o repositório |
@@ -153,13 +154,71 @@ Depois, `docker exec -it plab-lab-lab-1 bash` e a CLI escolhida dentro de `/work
 
 ## Fontes das imagens
 
-| Release | Principal (usada) | Reserva |
+| Release | Principal (usada) | Reserva (`PLAB_<rel>_FONTE=reserva`) |
 |---|---|---|
-| 12.1.2610 | `emebatista/*-2610:1.0.0` (digest no `.env.example`) | `feliperaposo/protheus:p12.1.2610` |
-| 12.1.2510 | `emebatista/*-2510:1.0.0` | oficial TOTVS `totvsengpro/*` (postgres-dev 12.1.2510_bra) |
+| 12.1.2610 | `emebatista/*-2610:1.0.0` (digest no `.env.example`) | `feliperaposo/protheus:p12.1.2610` + license 3.7.2, dbaccess 26.1.0.1, postgresql 18 |
+| 12.1.2510 | `emebatista/*-2510:1.0.0` | `feliperaposo/protheus:p12.1.2510` + license 3.7.2, dbaccess 24.1.1.3, postgresql 18 |
 
 Não existe imagem oficial TOTVS da 2610 (Docker Hub verificado em 02/11/2026). As imagens de
 comunidade não declaram licença; o lab só as referencia por digest e não as redistribui.
+
+### Fonte reserva
+
+Para usar se as imagens principais sumirem do Docker Hub. Todas as reservas estão fixadas por
+digest no `.env.example`.
+
+1. No `.env`, defina `PLAB_<rel>_FONTE=reserva`, as `PLAB_<rel>_RES_IMG_*` (copie do
+   `.env.example`) e as duas senhas do Postgres da reserva, `PLAB_RES_DB_ROOT_PASSWORD` e
+   `PLAB_RES_DB_PASSWORD`, escolhidas por você.
+2. Rode `./plab up <rel>` com o container lab no ar. O plab sobe `stacks/reserva/<rel>/compose.yaml`
+   no mesmo project (`plab-<rel>`), com as mesmas portas e os mesmos nomes de rede. Depois roda
+   `./plab inicializar <rel>`, que segue o assistente do Protheus na base vazia: "Criação de
+   empresa" → empresa TESTE 99/01 → país Brasil → tela de login, em cerca de 3 minutos.
+3. Defina a senha do Admin: veja a pendência abaixo.
+4. Para voltar, use `PLAB_<rel>_FONTE=principal` e `./plab up <rel>`. Os dados da principal ficam
+   intactos, porque a reserva usa volumes próprios (`plab-<rel>_pgdata-reserva` e
+   `plab-<rel>_rpo-compila-reserva`).
+
+Situação verificada em 05/11/2026:
+
+- **2610:**
+  - `./plab up 2610` → healthy.
+  - `./plab inicializar 2610` → login em cerca de 3 minutos.
+  - `lab doctor 2610` → OK.
+  - `lab smoke 2610` para no login (ver o Admin abaixo).
+- **2510:** sobe healthy e passa por "Criação de empresa" e "Localização". Depois a interface nova
+  (`/app-root/`) não responde, nem com `./plab restart 2510`: HTTP 000 no doctor, "404 - Unknow
+  status" no navegador. A imagem 2510 do autor não traz o proxy do `/app-root` que a 2610 dele
+  traz. Ainda não é uma reserva utilizável.
+
+Diferenças da principal:
+
+- **Base vazia.** A reserva não traz a base padrão restaurada nem os dados de demonstração. O
+  doctor passa, mas cenários que dependem de registros da base padrão não valem para ela.
+- **Admin sem senha, e a pendência que isso cria.** A interface nova (PO UI) não aceita senha em
+  branco: o botão "Entrar" fica desativado, e o REST responde 401 para `admin` sem senha. O lab
+  ainda não define essa senha sozinho. Entre uma vez pelo SmartClient desktop na porta TCP
+  (`127.0.0.1:<PLAB_<rel>_PORT_TCP>`), cujo login clássico aceita a senha em branco. No
+  Configurador, troque a senha do Admin pela mesma do `PLAB_<rel>_ADMIN_PASSWORD`. Até isso ser
+  feito, `lab smoke` para no passo 2 com "Usuário não autenticado" (visto em 05/11/2026).
+- **Nada pode abrir o `/app-root/` antes do `./plab inicializar`.** A primeira chamada ao
+  `/app-root/` inicia o ambiente por jobs internos e deixa a base pela metade ("Inconsistência nas
+  tabelas de usuário"). Por isso o healthcheck da reserva não abre o `/app-root/`. Se acontecer,
+  recrie só a base da reserva: com a reserva selecionada, rode `./plab down <rel> --volumes`, que
+  apaga apenas os volumes `-reserva`, e depois `./plab up <rel>`.
+- **Ajustes no `appserver.ini` da imagem**, feitos por `stacks/reserva/appserver-reserva.sh` a cada
+  start:
+  - Ambiente `P12` renomeado para `PLAB_<rel>_ENV`.
+  - Ambiente de compilação `PLAB_<rel>_ENV_COMPILA` criado com RPO próprio.
+  - REST movido para a porta interna 8181.
+  - Página padrão no `/app-root/`.
+  - Nomes exclusivos para DBAccess e License Server. Na rede `plab`, o nome `dbaccess` também
+    aponta para os DBAccess das stacks principais. Em 05/11/2026, um teste sem esse ajuste abriu
+    4 conexões curtas no DBAccess da 2510 principal; o smoke da 2510 seguiu PRONTO.
+- **Sem cópias de base.** `snapshot` e `restore` funcionam só na fonte principal.
+- **A oficial TOTVS (`totvsengpro/*`) não serve de reserva.** O AppServer dela exige que você
+  forneça RPO e dicionário (`tttm120.rpo`, `sxsbra.txt`, `sx2.unq`), arquivos licenciados que o
+  lab não redistribui. Por isso ela não sobe "pelo mesmo comando".
 Componentes das imagens originais **não usados**: DeskFlow (monta `docker.sock`, `pid: host`),
 SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 

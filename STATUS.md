@@ -14,7 +14,9 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 - Fonte principal das duas: imagens de comunidade `emebatista/*:1.0.0` (base restaurada), fixadas
   por digest no `.env.example`. Não existe tag 2610 oficial (Docker Hub verificado em 2026-11-02);
   o dono autorizou fonte não oficial.
-- Fonte reserva (FR-005, T018): **não implementada nesta versão**. Desvio registrado abaixo.
+- Fonte reserva (FR-005, T018, issue #3): implementada em 05/11/2026 com as imagens
+  `feliperaposo/*`, selecionada por `PLAB_<rel>_FONTE=reserva`. Na 2610 vai até o doctor OK; na
+  2510 está incompleta. Detalhes em "Fonte reserva" abaixo.
 - Fora: DeskFlow, SmartView, container exclusivo, `docker.sock`, `pid: host`, `privileged`.
 - Portas: 2610 → 26234/26321/26181/26432/26020; 2510 → 25234/25321/25181/25432/25020, todas em
   `127.0.0.1` e configuráveis no `.env`.
@@ -100,10 +102,59 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 ## Desvios registrados
 
 - **US6 / opencode**: fora desta versão por decisão do dono em 03/11/2026. Provider mantido no código, sem login testado.
-- **FR-005 / T018 (fonte reserva)**: fora desta versão. As reservas exigem outro layout de volumes,
-  ini e senhas, e testá-las de ponta a ponta dobra o download (~25 GB). Mitigação: digests fixos das
-  imagens principais e documentação das reservas no README. Revisitar se as imagens principais
-  sumirem.
+- **FR-005 / T018 (fonte reserva)**, revisto em 05/11/2026 (issue #3):
+  - **Troca de fonte.** A reserva das duas releases passou a ser `feliperaposo/*`, publicada em
+    22/10/2026. A `totvsengpro/*` saiu: o AppServer dela exige RPO e dicionário fornecidos pelo
+    usuário, e o lab não redistribui esses arquivos.
+  - **Desvio que fica:** na reserva a base vem vazia (sem a base padrão), e a 2510 ainda não
+    funciona. Ver "Fonte reserva" abaixo.
+
+## Fonte reserva (05/11/2026, issue #3)
+
+- **Implementação:**
+  - `stacks/reserva/<rel>/compose.yaml`, no mesmo project, portas e nomes da principal, com volumes
+    `-reserva`. O `plab`/`plab.ps1` escolhe o compose por `PLAB_<rel>_FONTE`.
+  - `stacks/reserva/appserver-reserva.sh` ajusta o `.ini` da imagem a cada start: nomes exclusivos
+    para DBAccess e License Server, ambiente com o nome do lab, ambiente de compilação com RPO
+    próprio, REST na 8181 e página padrão no `/app-root/`.
+  - `plab inicializar <rel>` (`lab/tir/inicializar_reserva.py`) segue o assistente da base vazia;
+    o `plab up` já chama.
+  - `snapshot` e `restore` ficam recusados na reserva.
+  - Testes: `lab/tests/test_plab_fonte.sh` (9 casos) e `test_plab_env.sh` ajustado. A CI valida o
+    `compose config` das reservas.
+- **Verificado na 2610:**
+  - `plab up 2610` → healthy.
+  - `plab inicializar 2610`:
+    - "Criação de empresa" → empresa TESTE 99/01, depois país Brasil, depois login.
+    - Cerca de 3 minutos; evidências em `evidencias/2610/20261105-212953-inicializar-reserva`.
+  - `lab doctor 2610`: OK em todos os itens.
+  - `plab smoke 2610`: falha no passo 2 com "Usuário não autenticado"
+    (`evidencias/2610/20261105-213346`).
+  - Pendência: o Admin da base vazia não tem senha, e a interface nova (PO UI) desativa o
+    "Entrar" com senha vazia. O REST também recusa (401). A senha precisa ser definida uma vez
+    pelo SmartClient desktop (passo no README). O smoke completo na reserva **não foi testado**.
+- **Verificado na 2510:**
+  - Sobe healthy e passa por "Criação de empresa" e "Localização".
+  - Depois o `/app-root/` não responde (HTTP 000; "404 - Unknow status" no navegador), nem após
+    `plab restart 2510`.
+  - A imagem 2510 do autor não traz o proxy do `/app-root` que a 2610 traz. **Não utilizável**
+    ainda.
+- **Achados:**
+  - **Rede `plab`.** O nome do serviço vira alias em todas as redes, então `dbaccess` também
+    resolve para os DBAccess das stacks principais. Um teste inicial da reserva, sem os nomes
+    exclusivos, abriu 4 conexões curtas no DBAccess da 2510 principal (de 22 a 69 operações, cerca
+    de 3 KB cada, sem login). O smoke da 2510 seguiu PRONTO logo depois.
+  - **Base pela metade.** Uma chamada ao `/app-root/` antes do assistente inicia o ambiente pelos
+    jobs `APP_POOL`/`HTTPJOB` e deixa a base pela metade ("Inconsistência nas tabelas de usuário").
+    Por isso o healthcheck da reserva não abre o `/app-root/`.
+- **Volta à principal:** `PLAB_<rel>_FONTE=principal` + `plab up`. O smoke deu **PRONTO** na 2610
+  (`evidencias/2610/20261105-213702`) e na 2510 (`evidencias/2510/20261105-221514`). Volumes da
+  principal e snapshots intactos: só os volumes `-reserva` foram apagados ou recriados.
+- **`plab.ps1`:** mesmo ciclo na 2610.
+  - `.\plab.ps1 up 2610` com a reserva: o `inicializar` foi via `docker cp` e chegou ao login com a
+    base já inicializada.
+  - De volta à principal, `plab smoke 2610` deu **PRONTO** (`evidencias/2610/20261105-222357`).
+  - Os erros de uso de `inicializar` (fonte principal, release inválida) saem com código 2.
 
 ## Decisões de governança
 
@@ -329,7 +380,7 @@ Nenhum.
 
 - R1 login PO UI × TIR: confirmado (totvs/tir#2169); mitigado com Playwright.
 - R2 License Server exigir `/dev/mem` no WSL2: não ocorreu; override opcional mantido.
-- R3 imagens de comunidade sem licença declarada: digest fixo; reserva não implementada (desvio).
+- R3 imagens de comunidade sem licença declarada: digest fixo; reserva feliperaposo na 2610 (doctor OK, Admin sem senha pendente) e incompleta na 2510.
 - R4 RAM das duas releases juntas: medida (~4,7 GB).
 - R5 licenças de desenvolvimento limitadas: sessões precisam sair pelo "Sair".
 

@@ -33,14 +33,28 @@ ler_env() {
     fi
     printf -v "$chave" '%s' "$valor"
   done < "$arq"
+  # Valida aqui, no shell principal: fonte() dentro de $(...) nao encerraria o script.
+  local rel
+  for rel in "${RELEASES[@]}"; do fonte "$rel" >/dev/null; done
 }
 
 testar_docker() { docker info --format '{{.ServerVersion}}' >/dev/null 2>&1 || sair 3 "Docker nao respondeu."; }
 
+# Fonte das imagens da release (PLAB_<rel>_FONTE no .env): principal (padrao) ou reserva
+# (stacks/reserva/<rel>, imagens feliperaposo; ver README > Fonte reserva).
+fonte() {
+  local var="PLAB_$1_FONTE"
+  case "${!var:-principal}" in
+    principal|reserva) echo "${!var:-principal}" ;;
+    *) sair 2 "$var invalido: '${!var}' (use principal ou reserva)" ;;
+  esac
+}
+
 arquivo_compose() {
   case "$1" in
-    2610) echo "$RAIZ/stacks/2610/compose.yaml" ;;
-    2510) echo "$RAIZ/stacks/2510/compose.yaml" ;;
+    2610|2510)
+      if [ "$(fonte "$1")" = reserva ]; then echo "$RAIZ/stacks/reserva/$1/compose.yaml"
+      else echo "$RAIZ/stacks/$1/compose.yaml"; fi ;;
     lab)  echo "$RAIZ/lab/compose.yaml" ;;
     *) sair 2 "alvo invalido: '$1' (use 2610, 2510, lab ou all)" ;;
   esac
@@ -135,6 +149,7 @@ checar_portas() {
 renovar_senha_admin() {
   local alvo=$1
   [[ " ${PLAB_RENOVAR_SENHA_ADMIN-2510} " == *" $alvo "* ]] || return 0
+  [ "$(fonte "$alvo")" = principal ] || return 0  # base da reserva nasce vazia, sem senha vencida
   # shellcheck disable=SC2016 # expandido dentro do container, de proposito
   if compose "$alvo" exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 -U postgres -d protheus -q -A -t -v ON_ERROR_STOP=1' \
        < "$RAIZ/stacks/sql/renova-senha-admin.sql" >/dev/null 2>&1; then
@@ -145,14 +160,21 @@ renovar_senha_admin() {
 }
 
 cmd_up() {
+  local reservas=()
   validar_alvo "${1:-}"; testar_docker; garantir_rede
   for alvo in $(alvos "$1"); do
     checar_portas "$alvo"
     # No Docker Engine Linux um bind inexistente nasce root:root e o usuario lab (uid 1000) nao grava.
     [ "$alvo" = lab ] && mkdir -p "$RAIZ/workspace" "$RAIZ/evidencias"
-    echo "subindo plab-$alvo..."
-    compose "$alvo" up -d --wait --wait-timeout 900 || sair 5 "plab-$alvo nao ficou healthy. Veja: ./plab logs $alvo"
+    if [ "$alvo" = lab ]; then echo "subindo plab-$alvo..."; else echo "subindo plab-$alvo (fonte $(fonte "$alvo"))..."; fi
+    # --remove-orphans: ao trocar de fonte, tira o container de servico que so a outra fonte tem.
+    compose "$alvo" up -d --remove-orphans --wait --wait-timeout 900 || sair 5 "plab-$alvo nao ficou healthy. Veja: ./plab logs $alvo"
     [ "$alvo" = lab ] || renovar_senha_admin "$alvo"
+    [ "$alvo" != lab ] && [ "$(fonte "$alvo")" = reserva ] && reservas+=("$alvo")
+  done
+  # Depois de todos os alvos: no "up all" o lab sobe por ultimo.
+  for alvo in "${reservas[@]}"; do
+    inicializar_reserva "$alvo" || echo "plab: aviso: base da reserva de plab-$alvo nao inicializada (veja acima)" >&2
   done
   cmd_status "${1:-}"
 }
@@ -220,6 +242,27 @@ reiniciar_appserver() {
   cmd_lab doctor "$1" || return 5
 }
 
+# Base vazia da fonte reserva: segue o assistente do Protheus (empresa TESTE 99/01) ate a tela de
+# login, pelo container lab. O script vai pela entrada padrao: funciona com qualquer imagem do lab.
+# Roda antes de qualquer acesso ao /app-root/ (ver stacks/reserva/<rel>/compose.yaml).
+inicializar_reserva() { # release
+  if ! projeto_rodando lab; then
+    echo "plab: aviso: container lab parado; a base da reserva ainda nao foi inicializada." >&2
+    echo "  Rode ./plab up lab e depois ./plab inicializar $1, antes de qualquer outro acesso." >&2
+    return 3
+  fi
+  echo "inicializando a base da reserva de plab-$1 (assistente do Protheus, cerca de 3 min)..."
+  compose lab exec -T lab python -u - "$1" < "$RAIZ/lab/tir/inicializar_reserva.py"
+}
+
+cmd_inicializar() {
+  case "${1:-}" in 2610|2510) ;; *) sair 2 "use: inicializar 2610|2510" ;; esac
+  [ "$(fonte "$1")" = reserva ] || sair 2 "inicializar e so para a fonte reserva (PLAB_$1_FONTE=reserva)"
+  testar_docker
+  projeto_rodando "$1" || sair 3 "plab-$1 parado. Rode: ./plab up $1"
+  inicializar_reserva "$1" || sair 5 "inicializacao da base da reserva falhou (veja acima)"
+}
+
 cmd_restart() {
   case "${1:-}" in 2610|2510) ;; *) sair 2 "use: restart 2610|2510" ;; esac
   testar_docker
@@ -268,6 +311,8 @@ cmd_copia_base() { # snapshot|restore release [nome]
   [ "$cmd" = snapshot ] && nome=${nome:-$(date +%Y%m%d_%H%M%S)}
   [ -n "$nome" ] || sair 2 "use: restore $rel <nome>  (copias: ./plab snapshots $rel)"
   validar_nome_copia "$nome"
+  # As copias sao do volume da base principal; na reserva o volume e outro (pgdata-reserva).
+  [ "$(fonte "$rel")" = principal ] || sair 2 "snapshot/restore so na fonte principal (PLAB_${rel}_FONTE=reserva)"
   testar_docker
   projeto_rodando "$rel" || sair 3 "plab-$rel parado. Rode: ./plab up $rel"
   copia=$(volume_copia "$rel" "$nome")
@@ -351,6 +396,7 @@ plab - Protheus 2610 Lab
   ./plab logs <alvo> [servico]
   ./plab smoke <2610|2510>         smoke dentro do container lab
   ./plab restart <2610|2510>       reinicia o AppServer e roda o doctor
+  ./plab inicializar <2610|2510>   fonte reserva: inicializa a base vazia (empresa TESTE 99/01)
   ./plab snapshot <rel> [nome]     copia o volume do banco da release (para a release durante a copia)
   ./plab snapshots <rel>           lista as copias da base
   ./plab restore <rel> <nome>      volta a base para a copia (GRAVA no banco do lab)
@@ -373,6 +419,7 @@ case "$cmd" in
           testar_docker; compose "$1" logs --tail 200 ${2:+"$2"} ;;
   smoke)  ler_env; cmd_smoke "${1:-}" ;;
   restart) ler_env; cmd_restart "${1:-}" ;;
+  inicializar) ler_env; cmd_inicializar "${1:-}" ;;
   snapshot|restore)        ler_env; cmd_copia_base "$cmd" "${1:-}" "${2:-}" ;;
   snapshots|snapshot-rm)   ler_env; cmd_copias "$cmd" "${1:-}" "${2:-}" ;;
   includes) ler_env; cmd_includes "${1:-}" "${2:-}" ;;
