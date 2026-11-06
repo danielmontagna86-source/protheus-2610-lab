@@ -1,0 +1,154 @@
+# Protheus 12.1.2610 - FONTE RESERVA (imagens da comunidade feliperaposo/*), project plab-2610.
+# Usada so com PLAB_2610_FONTE=reserva no .env (o plab escolhe este arquivo no lugar de
+# stacks/2610/compose.yaml). Mesmo project name, servicos e portas da stack principal: os comandos
+# do plab e do lab nao mudam. Os volumes tem sufixo -reserva e nunca tocam os dados da principal.
+# Diferencas da principal (ver README > Fonte reserva): base VAZIA, inicializada no primeiro acesso
+# (assistente "Criacao de empresa" -> empresa TESTE 99/01), Admin sem senha ate voce definir uma.
+name: plab-2610
+
+x-ulimits: &ulimits
+  core: {soft: -1, hard: -1}
+  nofile: {soft: 65536, hard: 65536}
+  stack: {soft: 1048576, hard: 1048576}
+
+x-logging: &logging
+  driver: json-file
+  options: {max-size: "10m", max-file: "3"}
+
+services:
+  db:
+    image: ${PLAB_2610_RES_IMG_DB:?defina PLAB_2610_RES_IMG_DB no .env}
+    platform: linux/amd64
+    restart: ${PLAB_RESTART:-unless-stopped}
+    environment:
+      POSTGRES_PASSWORD: ${PLAB_RES_DB_ROOT_PASSWORD:?defina PLAB_RES_DB_ROOT_PASSWORD no .env}
+      PROTHEUS_PASSWORD: ${PLAB_RES_DB_PASSWORD:?defina PLAB_RES_DB_PASSWORD no .env}
+    ports:
+      - "127.0.0.1:${PLAB_2610_PORT_DB:-26432}:5432"
+    volumes:
+      - pgdata-reserva:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -q"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    mem_limit: ${PLAB_MEM_DB:-2g}
+    logging: *logging
+    networks:
+      default:
+        aliases: [postgresql]
+
+  license:
+    image: ${PLAB_2610_RES_IMG_LICENSE:?defina PLAB_2610_RES_IMG_LICENSE no .env}
+    platform: linux/amd64
+    restart: ${PLAB_RESTART:-unless-stopped}
+    ports:
+      # Monitor: WebApp do License Server (porta 1234 dentro do container nesta imagem).
+      - "127.0.0.1:${PLAB_2610_PORT_LICMON:-26020}:1234"
+    ulimits: *ulimits
+    healthcheck:
+      # Porta 5555 em escuta lida em /proc/net/tcp (15B3, estado 0A): sem abrir conexao, que no
+      # License Server gera um WARN "Client Packet size mismatch" a cada teste (issue #27).
+      test: ["CMD", "bash", "-c", "grep -qE '^ *[0-9]+: [0-9A-F]+:15B3 [0-9A-F]+:[0-9A-F]+ 0A ' /proc/net/tcp /proc/net/tcp6"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    mem_limit: ${PLAB_MEM_LICENSE:-1g}
+    logging: *logging
+    networks:
+      default:
+        aliases: [license-server, license-res]
+      plab:
+        # O lab testa a porta no doctor (FR-008).
+        aliases: [license-server-2610]
+
+  dbaccess:
+    image: ${PLAB_2610_RES_IMG_DBACCESS:?defina PLAB_2610_RES_IMG_DBACCESS no .env}
+    platform: linux/amd64
+    restart: ${PLAB_RESTART:-unless-stopped}
+    environment:
+      PROTHEUS_PASSWORD: ${PLAB_RES_DB_PASSWORD:?defina PLAB_RES_DB_PASSWORD no .env}
+    ulimits: *ulimits
+    depends_on:
+      db: {condition: service_healthy}
+      license: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/7890 && echo > /dev/tcp/127.0.0.1/7891"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    mem_limit: ${PLAB_MEM_DBACCESS:-1g}
+    logging: *logging
+    networks:
+      default:
+        aliases: [dbaccess-res]
+      plab:
+        # O lab testa a porta no doctor (FR-008).
+        aliases: [dbaccess-2610]
+
+  # RPO proprio do ambiente de compilacao, semeado uma vez a partir do RPO da imagem.
+  rpo-init:
+    image: ${PLAB_2610_RES_IMG_APPSERVER:?defina PLAB_2610_RES_IMG_APPSERVER no .env}
+    platform: linux/amd64
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        bash /plab/semear-volume.sh /protheus12/apo /dst tttm120.rpo rpo-init
+        ls -la /dst
+    volumes:
+      - rpo-compila-reserva:/dst
+      - ../../semear-volume.sh:/plab/semear-volume.sh:ro
+    logging: *logging
+    network_mode: none
+
+  appserver:
+    image: ${PLAB_2610_RES_IMG_APPSERVER:?defina PLAB_2610_RES_IMG_APPSERVER no .env}
+    platform: linux/amd64
+    restart: ${PLAB_RESTART:-unless-stopped}
+    entrypoint: ["/bin/bash", "/plab/appserver-reserva.sh"]
+    environment:
+      - APPSERVER_DATABASE=POSTGRES
+      - PLAB_RES_ENV=${PLAB_2610_ENV:-P2610}
+      - PLAB_RES_ENV_COMPILA=${PLAB_2610_ENV_COMPILA:-P2610_COMPILA}
+    ports:
+      # 1234: proxy da imagem (multiprotocolo na 1235 + /app-root do HTTPSERVER na 9995).
+      - "127.0.0.1:${PLAB_2610_PORT_TCP:-26234}:1234"
+      - "127.0.0.1:${PLAB_2610_PORT_WEBAPP:-26321}:50001"
+      - "127.0.0.1:${PLAB_2610_PORT_REST:-26181}:8181"
+    volumes:
+      - rpo-compila-reserva:/protheus12/apo_compila
+      - ../appserver-reserva.sh:/plab/appserver-reserva.sh:ro
+    ulimits: *ulimits
+    depends_on:
+      dbaccess: {condition: service_healthy}
+      rpo-init: {condition: service_completed_successfully}
+    healthcheck:
+      # Sem abrir o /app-root/ (diferente da principal): na base vazia, a primeira chamada ao
+      # /app-root/ inicia o ambiente pelos jobs APP_POOL/HTTPJOB antes do assistente "Criacao de
+      # empresa" e deixa a base pela metade ("Inconsistencia nas tabelas de usuario", 05/11/2026).
+      # A porta do REST e conferida em /proc/net/tcp (8181 = 1FF5, estado 0A), sem requisicao.
+      test: ["CMD", "bash", "-c", "curl -sf -o /dev/null -m 5 http://127.0.0.1:1234/webapp/ && grep -qE '^ *[0-9]+: [0-9A-F]+:1FF5 [0-9A-F]+:[0-9A-F]+ 0A ' /proc/net/tcp /proc/net/tcp6"]
+      interval: 15s
+      timeout: 12s
+      retries: 40
+      start_period: 120s
+    mem_limit: ${PLAB_MEM_APPSERVER:-6g}
+    logging: *logging
+    networks:
+      default: {}
+      plab:
+        aliases: [appserver-2610]
+
+volumes:
+  pgdata-reserva:
+  rpo-compila-reserva:
+
+networks:
+  default:
+  plab:
+    external: true

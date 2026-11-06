@@ -12,9 +12,10 @@ confere() { # descricao obtido esperado
   if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FALHA $1: obtido [$2], esperado [$3]"; falhas=$((falhas + 1)); fi
 }
 
-# Copia so as funcoes sair e ler_env do plab (o script executa o comando no fim).
+# Copia so as funcoes sair, fonte e ler_env do plab (o script executa o comando no fim).
 {
-  sed -n '/^sair()/p' "$raiz/plab"
+  sed -n '/^RELEASES=/p; /^sair()/p' "$raiz/plab"
+  sed -n '/^fonte()/,/^}/p' "$raiz/plab"
   sed -n '/^ler_env()/,/^}/p' "$raiz/plab"
 } > "$tmp/funcoes.sh"
 

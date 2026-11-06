@@ -17,6 +17,7 @@ $cRede = 'plab'
 $cRotuloDono = 'com.plab.owner'
 $aReleases = @('2610', '2510')
 $lLabDev = $false  # PLAB_LAB_DEV=1 no .env (Ler-Env) liga o modo desenvolvimento do lab
+$oFonte = @{}      # PLAB_<rel>_FONTE do .env (Ler-Env): principal (padrao) ou reserva
 
 function Sair([int] $nCodigo, [string] $cMsg) {
     if ($cMsg) { [Console]::Error.WriteLine("plab: $cMsg") }
@@ -42,6 +43,13 @@ function Ler-Env {
     }
     # PLAB_LAB_DEV=1: o compose do lab soma lab\compose.dev.yaml (ver Args-Compose).
     $script:lLabDev = ($oEnv['PLAB_LAB_DEV'] -eq '1')
+    # Fonte das imagens por release (stacks\reserva\<rel> com reserva; ver README > Fonte reserva).
+    foreach ($cRel in $aReleases) {
+        $cFonte = $oEnv["PLAB_${cRel}_FONTE"]
+        if (-not $cFonte) { $cFonte = 'principal' }
+        if ($cFonte -notin @('principal', 'reserva')) { Sair 2 "PLAB_${cRel}_FONTE invalido: '$cFonte' (use principal ou reserva)" }
+        $script:oFonte[$cRel] = $cFonte
+    }
     return $oEnv
 }
 
@@ -52,8 +60,10 @@ function Testar-Docker {
 
 function Arquivo-Compose([string] $cAlvo) {
     switch ($cAlvo) {
-        '2610' { return Join-Path $cRaiz 'stacks\2610\compose.yaml' }
-        '2510' { return Join-Path $cRaiz 'stacks\2510\compose.yaml' }
+        { $_ -in $aReleases } {
+            if ($script:oFonte[$cAlvo] -eq 'reserva') { return Join-Path $cRaiz "stacks\reserva\$cAlvo\compose.yaml" }
+            return Join-Path $cRaiz "stacks\$cAlvo\compose.yaml"
+        }
         'lab'  { return Join-Path $cRaiz 'lab\compose.yaml' }
         default { Sair 2 "alvo invalido: '$cAlvo' (use 2610, 2510, lab ou all)" }
     }
@@ -162,6 +172,7 @@ function Renovar-Senha-Admin {
     # A senha do banco e lida dentro do container (POSTGRES_PASSWORD da imagem): nada em argv nem
     # em arquivo temporario; o SQL vai pela entrada padrao.
     param([string] $cAlvo, $oEnv)
+    if ($script:oFonte[$cAlvo] -ne 'principal') { return }  # base da reserva nasce vazia, sem senha vencida
     $cLista = if ($oEnv.ContainsKey('PLAB_RENOVAR_SENHA_ADMIN')) { $oEnv['PLAB_RENOVAR_SENHA_ADMIN'] } else { '2510' }
     if (($cLista -split '[,\s]+') -notcontains $cAlvo) { return }
     $cSql = Join-Path $cRaiz 'stacks\sql\renova-senha-admin.sql'
@@ -184,8 +195,10 @@ function Cmd-Up($oEnv, [string] $cAlvoArg) {
         if ($cAlvo -eq 'lab') {
             foreach ($cDir in 'workspace', 'evidencias') { New-Item -ItemType Directory -Force -Path (Join-Path $cRaiz $cDir) | Out-Null }
         }
-        Write-Host "subindo $(Projeto $cAlvo)..."
-        $nRet = Compose $cAlvo @('up', '-d', '--wait', '--wait-timeout', '900')
+        if ($aReleases -contains $cAlvo) { Write-Host "subindo $(Projeto $cAlvo) (fonte $($script:oFonte[$cAlvo]))..." }
+        else { Write-Host "subindo $(Projeto $cAlvo)..." }
+        # --remove-orphans: ao trocar de fonte, tira o container de servico que so a outra fonte tem.
+        $nRet = Compose $cAlvo @('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '900')
         if ($nRet -ne 0) { Sair 5 "$(Projeto $cAlvo) nao ficou healthy. Veja: .\plab.ps1 logs $cAlvo" }
         if ($aReleases -contains $cAlvo) { Renovar-Senha-Admin $cAlvo $oEnv }
     }
@@ -319,6 +332,8 @@ function Cmd-Copia-Base($oEnv, [string] $cCmd, [string] $cRel, [string] $cNome) 
     if ($cCmd -eq 'snapshot' -and -not $cNome) { $cNome = Get-Date -Format 'yyyyMMdd_HHmmss' }
     if (-not $cNome) { Sair 2 "use: restore $cRel <nome>  (copias: .\plab.ps1 snapshots $cRel)" }
     Validar-Nome-Copia $cNome
+    # As copias sao do volume da base principal; na reserva o volume e outro (pgdata-reserva).
+    if ($script:oFonte[$cRel] -ne 'principal') { Sair 2 "snapshot/restore so na fonte principal (PLAB_${cRel}_FONTE=reserva)" }
     Testar-Docker
     if (-not (Projeto-Rodando $cRel)) { Sair 3 "plab-$cRel parado. Rode: .\plab.ps1 up $cRel" }
     $cDados = "plab-${cRel}_pgdata"
