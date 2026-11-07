@@ -1,6 +1,6 @@
 # plab.ps1 - wrapper do host para o Protheus 2610 Lab (Windows PowerShell 5.1+).
 # Contrato: specs/001-protheus-2610-lab/contracts/plab-cli.md
-# Uso: .\plab.ps1 <net|ports|up|down|status|logs|smoke|restart|inicializar|snapshot|snapshots|restore|snapshot-rm|includes|setup|scan> [alvo] [opcoes]
+# Uso: .\plab.ps1 <net|ports|up|down|status|logs|smoke|restart|inicializar|snapshot|snapshots|restore|snapshot-rm|sequencias|includes|setup|scan> [alvo] [opcoes]
 
 param(
     [Parameter(Position = 0)] [string] $Comando = 'help',
@@ -188,6 +188,61 @@ function Renovar-Senha-Admin {
     else { Write-Host "senha do Admin renovada (sem alteracao) em $(Projeto $cAlvo)" }
 }
 
+function Sequencias-Recno([string] $cAlvo, [string] $cAjustar) {
+    # Sequencias de R_E_C_N_O_ atrasadas na base da imagem (issue #30). Devolve @{ Rc; Linhas; Texto }:
+    # Linhas = "tabela|sequencia|antes|depois" de cada tabela atrasada. Mesmo cuidado da senha do
+    # Admin: senha do banco lida dentro do container, SQL pela entrada padrao, BOM removido no sed.
+    $cSql = Join-Path $cRaiz 'stacks\sql\ajusta-sequencias-recno.sql'
+    $aBase = Args-Compose $cAlvo
+    $OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    $aSaida = @(Get-Content -Raw $cSql | & docker @aBase exec -T db sh -c "sed 1s/^\\xEF\\xBB\\xBF// | PGPASSWORD=`$POSTGRES_PASSWORD psql -h 127.0.0.1 -U postgres -d protheus -q -A -t -v ON_ERROR_STOP=1 -v ajustar=$cAjustar" 2>&1)
+    $nRc = $LASTEXITCODE
+    $aLinhas = @($aSaida | ForEach-Object { "$_" } | Where-Object { $_ -match '^[^|\s]+\|' })
+    return @{ Rc = $nRc; Linhas = $aLinhas; Texto = (($aSaida | ForEach-Object { "$_" }) -join ' ') }
+}
+
+function Ajustar-Sequencias {
+    # Adianta as sequencias de R_E_C_N_O_ atrasadas ate o maior R_E_C_N_O_ gravado (issue #30: na
+    # 2610 a inclusao cai com chave duplicada). Nao altera dados. Releases em
+    # PLAB_AJUSTAR_SEQUENCIAS (padrao 2610). O que mudou fica em evidencias\<rel>\sequencias-<data>.txt.
+    param([string] $cAlvo, $oEnv, [bool] $lForcar = $false)
+    if (-not $lForcar) {
+        if ($script:oFonte[$cAlvo] -ne 'principal') { return 0 }  # base da reserva e criada pelo proprio Protheus
+        $cLista = if ($oEnv.ContainsKey('PLAB_AJUSTAR_SEQUENCIAS')) { $oEnv['PLAB_AJUSTAR_SEQUENCIAS'] } else { '2610' }
+        if (($cLista -split '[,\s]+') -notcontains $cAlvo) { return 0 }
+    }
+    $oRes = Sequencias-Recno $cAlvo 'true'
+    if ($oRes.Rc -ne 0) { Write-Warning "ajuste das sequencias de RECNO falhou em $(Projeto $cAlvo): $($oRes.Texto)"; return 1 }
+    if ($oRes.Linhas.Count -eq 0) { Write-Host "sequencias de RECNO em dia em $(Projeto $cAlvo)"; return 0 }
+    $cDir = Join-Path $cRaiz "evidencias\$cAlvo"
+    New-Item -ItemType Directory -Force -Path $cDir | Out-Null
+    $cArq = Join-Path $cDir ("sequencias-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.txt')
+    $aTexto = @("$(Projeto $cAlvo): sequencias de R_E_C_N_O_ adiantadas em $(Get-Date -Format 'dd/MM/yyyy HH:mm:ss') (issue #30)",
+                'tabela|sequencia|proximo_antes|proximo_depois') + $oRes.Linhas
+    [System.IO.File]::WriteAllText($cArq, (($aTexto -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
+    Write-Host "sequencias de RECNO ajustadas em $(Projeto $cAlvo): $($oRes.Linhas.Count) tabela(s); detalhes em evidencias\$cAlvo\$(Split-Path -Leaf $cArq)"
+    return 0
+}
+
+function Cmd-Sequencias($oEnv, [string] $cRel, [string] $cAcao) {
+    if ($aReleases -notcontains $cRel) { Sair 2 'use: sequencias 2610|2510 [ajustar]' }
+    if ($cAcao -and $cAcao -ne 'ajustar') { Sair 2 "use: sequencias $cRel [ajustar]" }
+    Testar-Docker
+    if (-not (Projeto-Rodando $cRel)) { Sair 3 "plab-$cRel parado. Rode: .\plab.ps1 up $cRel" }
+    if ($cAcao -eq 'ajustar') {
+        if ((Ajustar-Sequencias $cRel $oEnv $true) -ne 0) { Sair 5 'ajuste das sequencias falhou' }
+        exit 0
+    }
+    $oRes = Sequencias-Recno $cRel 'false'
+    if ($oRes.Rc -ne 0) { Sair 5 "conferencia das sequencias falhou: $($oRes.Texto)" }
+    if ($oRes.Linhas.Count -eq 0) { Write-Host "$(Projeto $cRel): nenhuma sequencia de RECNO atrasada"; exit 0 }
+    Write-Host "$(Projeto $cRel): $($oRes.Linhas.Count) sequencia(s) de RECNO atrasada(s) (nada alterado):"
+    Write-Host 'tabela|sequencia|proximo|deveria_ser'
+    $oRes.Linhas | ForEach-Object { Write-Host $_ }
+    Write-Host "para ajustar: .\plab.ps1 sequencias $cRel ajustar"
+    exit 0
+}
+
 function Cmd-Up($oEnv, [string] $cAlvoArg) {
     Alvos $cAlvoArg | Out-Null
     Testar-Docker
@@ -202,7 +257,7 @@ function Cmd-Up($oEnv, [string] $cAlvoArg) {
         # --remove-orphans: ao trocar de fonte, tira o container de servico que so a outra fonte tem.
         $nRet = Compose $cAlvo @('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '900')
         if ($nRet -ne 0) { Sair 5 "$(Projeto $cAlvo) nao ficou healthy. Veja: .\plab.ps1 logs $cAlvo" }
-        if ($aReleases -contains $cAlvo) { Renovar-Senha-Admin $cAlvo $oEnv }
+        if ($aReleases -contains $cAlvo) { Renovar-Senha-Admin $cAlvo $oEnv; Ajustar-Sequencias $cAlvo $oEnv | Out-Null }
     }
     # Depois de todos os alvos: no "up all" o lab sobe por ultimo.
     foreach ($cAlvo in (Alvos $cAlvoArg)) {
@@ -483,7 +538,7 @@ function Cmd-Copia-Base($oEnv, [string] $cCmd, [string] $cRel, [string] $cNome) 
     }
     Write-Host "religando $(Projeto $cRel)..."
     if ((Compose $cRel @('up', '-d', '--wait', '--wait-timeout', '900')) -ne 0) { Sair 5 "$(Projeto $cRel) nao ficou healthy. Veja: .\plab.ps1 logs $cRel" }
-    if ($cCmd -eq 'restore' -and $nRc -eq 0) { Renovar-Senha-Admin $cRel $oEnv }
+    if ($cCmd -eq 'restore' -and $nRc -eq 0) { Renovar-Senha-Admin $cRel $oEnv; Ajustar-Sequencias $cRel $oEnv | Out-Null }
     if ($nRc -ne 0) { Sair $nRc 'falha na copia do volume; a release foi religada' }
     Write-Host "$(Projeto $cRel) pronto."
     exit 0
@@ -562,7 +617,8 @@ plab - Protheus 2610 Lab
   .\plab.ps1 snapshots <rel>           lista as copias da base
   .\plab.ps1 restore <rel> <nome>      volta a base para a copia (GRAVA no banco do lab)
   .\plab.ps1 snapshot-rm <rel> <nome>  apaga uma copia
-  .\plab.ps1 includes 2510 <pasta>     copia os includes (.ch) da sua pasta para o lab (nao versiona)
+  .\plab.ps1 sequencias <rel> [ajustar] confere (ou ajusta) as sequencias de RECNO atrasadas (issue #30)
+  .\plab.ps1 includes 2510 <pasta>    copia os includes (.ch) da sua pasta para o lab (nao versiona)
   .\plab.ps1 setup                     assistente "lab setup"
   .\plab.ps1 scan                      varredura de segredos
 '@
@@ -580,6 +636,7 @@ switch ($Comando) {
     'inicializar' { Ler-Env | Out-Null; Cmd-Inicializar $Alvo }
     { $_ -in 'snapshot', 'restore' } { Cmd-Copia-Base (Ler-Env) $Comando $Alvo $Servico }
     { $_ -in 'snapshots', 'snapshot-rm' } { Ler-Env | Out-Null; Cmd-Copias $Comando $Alvo $Servico }
+    'sequencias' { Cmd-Sequencias (Ler-Env) $Alvo $Servico }
     'includes' { Ler-Env | Out-Null; Cmd-Includes $Alvo $Servico }
     'setup'  { Ler-Env | Out-Null; exit (Cmd-Lab @('setup') $true) }
     'scan'   { & (Join-Path $cRaiz 'lab\bin\plab-scan.ps1'); exit $LASTEXITCODE }

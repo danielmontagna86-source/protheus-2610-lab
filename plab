@@ -159,6 +159,58 @@ renovar_senha_admin() {
   fi
 }
 
+# Sequencias de R_E_C_N_O_ atrasadas na base da imagem (issue #30): na 2610, 25 tabelas tem o
+# proximo valor da sequencia ja usado, e qualquer inclusao nelas cai com chave duplicada. O ajuste
+# so adianta a sequencia ate o maior R_E_C_N_O_ gravado; nao altera dados. Releases em
+# PLAB_AJUSTAR_SEQUENCIAS (padrao 2610). O que mudou fica em evidencias/<rel>/sequencias-<data>.txt.
+# Mesmo cuidado da senha: senha do banco lida dentro do container, SQL pela entrada padrao.
+sequencias_recno() { # release true|false -> linhas "tabela|sequencia|antes|depois" (stdout)
+  # shellcheck disable=SC2016 # $POSTGRES_PASSWORD expandido dentro do container, de proposito
+  compose "$1" exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 -U postgres -d protheus -q -A -t -v ON_ERROR_STOP=1 -v ajustar='"$2" \
+    < "$RAIZ/stacks/sql/ajusta-sequencias-recno.sql"
+}
+
+ajustar_sequencias() { # release [forcar]
+  local alvo=$1 saida n arq
+  if [ "${2:-}" != forcar ]; then
+    [[ " ${PLAB_AJUSTAR_SEQUENCIAS-2610} " == *" $alvo "* ]] || return 0
+    [ "$(fonte "$alvo")" = principal ] || return 0  # base da reserva e criada pelo proprio Protheus
+  fi
+  if ! saida=$(sequencias_recno "$alvo" true 2>&1); then
+    echo "plab: aviso: ajuste das sequencias de RECNO falhou em plab-$alvo: $saida" >&2
+    return 1
+  fi
+  if [ -z "$saida" ]; then
+    echo "sequencias de RECNO em dia em plab-$alvo"
+    return 0
+  fi
+  n=$(echo "$saida" | grep -c .)
+  arq="$RAIZ/evidencias/$alvo/sequencias-$(date +%Y%m%d-%H%M%S).txt"
+  mkdir -p "$RAIZ/evidencias/$alvo"
+  { echo "plab-$alvo: sequencias de R_E_C_N_O_ adiantadas em $(date '+%d/%m/%Y %H:%M:%S') (issue #30)"
+    echo "tabela|sequencia|proximo_antes|proximo_depois"
+    echo "$saida"; } > "$arq"
+  echo "sequencias de RECNO ajustadas em plab-$alvo: $n tabela(s); detalhes em ${arq#"$RAIZ"/}"
+}
+
+cmd_sequencias() { # release [ajustar]
+  local rel=${1:-} saida
+  case "$rel" in 2610|2510) ;; *) sair 2 "use: sequencias 2610|2510 [ajustar]" ;; esac
+  case "${2:-}" in ""|ajustar) ;; *) sair 2 "use: sequencias $rel [ajustar]" ;; esac
+  testar_docker
+  projeto_rodando "$rel" || sair 3 "plab-$rel parado. Rode: ./plab up $rel"
+  if [ "${2:-}" = ajustar ]; then
+    ajustar_sequencias "$rel" forcar || sair 5 "ajuste das sequencias falhou"
+    return 0
+  fi
+  saida=$(sequencias_recno "$rel" false 2>&1) || sair 5 "conferencia das sequencias falhou: $saida"
+  if [ -z "$saida" ]; then echo "plab-$rel: nenhuma sequencia de RECNO atrasada"; return 0; fi
+  echo "plab-$rel: $(echo "$saida" | grep -c .) sequencia(s) de RECNO atrasada(s) (nada alterado):"
+  echo "tabela|sequencia|proximo|deveria_ser"
+  echo "$saida"
+  echo "para ajustar: ./plab sequencias $rel ajustar"
+}
+
 cmd_up() {
   local reservas=()
   validar_alvo "${1:-}"; testar_docker; garantir_rede
@@ -170,6 +222,7 @@ cmd_up() {
     # --remove-orphans: ao trocar de fonte, tira o container de servico que so a outra fonte tem.
     compose "$alvo" up -d --remove-orphans --wait --wait-timeout 900 || sair 5 "plab-$alvo nao ficou healthy. Veja: ./plab logs $alvo"
     [ "$alvo" = lab ] || renovar_senha_admin "$alvo"
+    [ "$alvo" = lab ] || ajustar_sequencias "$alvo" || true
     [ "$alvo" != lab ] && [ "$(fonte "$alvo")" = reserva ] && reservas+=("$alvo")
   done
   # Depois de todos os alvos: no "up all" o lab sobe por ultimo.
@@ -414,6 +467,7 @@ cmd_copia_base() { # snapshot|restore release [nome]
   echo "religando plab-$rel..."
   compose "$rel" up -d --wait --wait-timeout 900 >/dev/null 2>&1 || sair 5 "plab-$rel nao ficou healthy. Veja: ./plab logs $rel"
   [ "$cmd" = restore ] && [ "$rc" -eq 0 ] && renovar_senha_admin "$rel"
+  [ "$cmd" = restore ] && [ "$rc" -eq 0 ] && { ajustar_sequencias "$rel" || true; }
   [ "$rc" -eq 0 ] || sair "$rc" "falha na copia do volume; a release foi religada"
   echo "plab-$rel pronto."
 }
@@ -479,6 +533,7 @@ plab - Protheus 2610 Lab
   ./plab snapshots <rel>           lista as copias da base
   ./plab restore <rel> <nome>      volta a base para a copia (GRAVA no banco do lab)
   ./plab snapshot-rm <rel> <nome>  apaga uma copia
+  ./plab sequencias <rel> [ajustar] confere (ou ajusta) as sequencias de RECNO atrasadas (issue #30)
   ./plab includes 2510 <pasta>     copia os includes (.ch) da sua pasta para o lab (nao versiona)
   ./plab setup                   assistente "lab setup"
   ./plab scan                      varredura de segredos
@@ -500,6 +555,7 @@ case "$cmd" in
   inicializar) ler_env; cmd_inicializar "${1:-}" ;;
   snapshot|restore)        ler_env; cmd_copia_base "$cmd" "${1:-}" "${2:-}" ;;
   snapshots|snapshot-rm)   ler_env; cmd_copias "$cmd" "${1:-}" "${2:-}" ;;
+  sequencias) ler_env; cmd_sequencias "${1:-}" "${2:-}" ;;
   includes) ler_env; cmd_includes "${1:-}" "${2:-}" ;;
   setup)  ler_env; cmd_lab setup ;;
   scan)   exec bash "$RAIZ/lab/bin/plab-scan" ;;

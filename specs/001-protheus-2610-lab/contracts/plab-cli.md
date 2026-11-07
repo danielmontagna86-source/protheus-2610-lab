@@ -16,6 +16,7 @@ plab snapshot <rel> [nome]    # copia o volume do Postgres da release para plab-
 plab snapshots <rel>          # lista as cópias (nome, tamanho, data)
 plab restore <rel> <nome>     # volta a base para a cópia (grava no banco do lab)
 plab snapshot-rm <rel> <nome> # apaga uma cópia
+plab sequencias <rel> [ajustar] # confere (ou ajusta) as sequências de RECNO atrasadas (issue #30)
 plab setup                    # abre "lab setup" interativo no container lab
 plab scan                     # varredura de segredos (git, imagem, container lab, docker logs, evidências)
 plab ports                    # mostra portas configuradas e se estão livres
@@ -33,6 +34,13 @@ plab ports                    # mostra portas configuradas e se estão livres
   não é reutilizada (código 3), exceto a de versão anterior do plab em que todos os containers
   ligados são dos projetos `plab-*`: segue com aviso para recriar (emenda de 03/11/2026, L2).
 - `up` de release em `PLAB_RENOVAR_SENHA_ADMIN` renova a data da última troca de senha do Admin.
+- `sequencias <rel> [ajustar]` (emenda de 07/11/2026, issue #30): sem `ajustar`, lista as tabelas
+  cuja sequência de `R_E_C_N_O_` tem o próximo valor menor ou igual ao maior RECNO gravado, sem
+  alterar nada. Com `ajustar`, aplica `stacks/sql/ajusta-sequencias-recno.sql` em qualquer fonte e
+  lista de releases: `setval(seq, max(r_e_c_n_o_), true)` só nas atrasadas, sem tocar nos dados,
+  com o registro em `evidencias/<rel>/sequencias-<data>.txt`. O `up` e o `restore` fazem o mesmo
+  ajuste nas releases de `PLAB_AJUSTAR_SEQUENCIAS` (padrão `2610`; vazio desliga) da fonte
+  principal; uma falha ali só avisa. Códigos: 2 uso incorreto, 3 release parada, 5 falha no banco.
 - `PLAB_LAB_DEV=1` no `.env` (emenda de 04/11/2026): todo compose do alvo `lab` (`up`, `down`,
   `status`, `logs`, `smoke`, `setup`) recebe também `-f lab/compose.dev.yaml`, que monta `lab/`,
   `cenarios/` e `skills/` do repositório em `/opt/plab/lab`, `/opt/plab/cenarios` e
@@ -67,7 +75,8 @@ plab ports                    # mostra portas configuradas e se estão livres
   recriada. Nome: `a-z`, `0-9` e `_`, até 40; sem nome, o `snapshot` usa data e hora. Nome e
   existência são conferidos antes de parar a release. As cópias sobrevivem a `down --volumes`
   (são volumes à parte) e ocupam o tamanho do volume de dados. Depois de um `restore`, a release em
-  `PLAB_RENOVAR_SENHA_ADMIN` tem a data da senha renovada. Códigos: 2 nome inválido, 3 release
+  `PLAB_RENOVAR_SENHA_ADMIN` tem a data da senha renovada, e a de `PLAB_AJUSTAR_SEQUENCIAS`, as
+  sequências de RECNO ajustadas. Códigos: 2 nome inválido, 3 release
   parada, 4 cópia inexistente ou repetida, 5 falha na cópia ou na volta da stack.
 - Código de saída: 0 sucesso; 2 uso incorreto; 3 pré-requisito ausente (Docker, `.env`, container
   lab parado); 4 porta ocupada; 5 serviço não ficou healthy (inclui `restart`); 10+n falha no passo
