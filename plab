@@ -242,17 +242,95 @@ reiniciar_appserver() {
   cmd_lab doctor "$1" || return 5
 }
 
-# Base vazia da fonte reserva: segue o assistente do Protheus (empresa TESTE 99/01) ate a tela de
-# login, pelo container lab. O script vai pela entrada padrao: funciona com qualquer imagem do lab.
+# Base vazia da fonte reserva, em quatro passos (o plab up ja chama, depois de subir todos os alvos):
+#  1. assistente do Protheus ate a tela de login (empresa TESTE 99/01, Brasil);
+#  2. Admin importado da base principal local da release (importar_admin_principal);
+#  3. Configurador: dicionario da empresa 99 criado a partir do systemload da imagem e tipo de
+#     ambiente Desenvolvimento;
+#  4. primeiro acesso com o Admin nos modulos do smoke e dos cenarios (dialogos do primeiro uso) e
+#     Log Off. Detalhes em lab/tir/inicializar_reserva.py.
+# O script Python vai pela entrada padrao do container lab: funciona com qualquer imagem do lab.
 # Roda antes de qualquer acesso ao /app-root/ (ver stacks/reserva/<rel>/compose.yaml).
 inicializar_reserva() { # release
+  local rc
   if ! projeto_rodando lab; then
     echo "plab: aviso: container lab parado; a base da reserva ainda nao foi inicializada." >&2
     echo "  Rode ./plab up lab e depois ./plab inicializar $1, antes de qualquer outro acesso." >&2
     return 3
   fi
   echo "inicializando a base da reserva de plab-$1 (assistente do Protheus, cerca de 3 min)..."
-  compose lab exec -T lab python -u - "$1" < "$RAIZ/lab/tir/inicializar_reserva.py"
+  compose lab exec -T lab python -u - "$1" assistente < "$RAIZ/lab/tir/inicializar_reserva.py" || return
+  importar_admin_principal "$1" || { rc=$?; return "$rc"; }
+  echo "Configurador: dicionario a partir do systemload e tipo de ambiente (cerca de 5 min)..."
+  compose lab exec -T lab python -u - "$1" configurador < "$RAIZ/lab/tir/inicializar_reserva.py" || return
+  echo "primeiro acesso com o Admin (modulos do smoke e dos cenarios)..."
+  compose lab exec -T lab python -u - "$1" primeiro-acesso < "$RAIZ/lab/tir/inicializar_reserva.py" || return
+  ativar_approot_nativo "$1"
+}
+
+# Onde o compose define PLAB_RES_APPROOT_NATIVO=sim (2610): grava a marca de base inicializada no
+# volume da reserva e reinicia o appserver, que passa a servir o /app-root nativo (menos avisos da
+# issue #21; ver stacks/reserva/appserver-reserva.sh, passo 3b). A marca some com a base.
+ativar_approot_nativo() { # release
+  # shellcheck disable=SC2016 # expandido dentro do container, de proposito
+  compose "$1" exec -T appserver sh -c 'test "$PLAB_RES_APPROOT_NATIVO" = sim' >/dev/null 2>&1 || return 0
+  # Por sh -c: no Git Bash do Windows um argumento que comeca com / vira caminho do Windows.
+  compose "$1" exec -T appserver sh -c 'touch /protheus12/apo_compila/.plab-base-inicializada' || return 5
+  echo "base inicializada: /app-root nativo (reiniciando o appserver de plab-$1)..."
+  compose "$1" restart appserver >/dev/null 2>&1 || return 5
+  sleep 20
+  esperar_healthy "$1" appserver 600 || { echo "plab: appserver de plab-$1 nao ficou healthy" >&2; return 5; }
+  # Confere o login com o /app-root nativo (e aquece o AppServer recem-reiniciado).
+  echo "conferindo o login com o /app-root nativo..."
+  compose lab exec -T lab python -u - "$1" primeiro-acesso 5 < "$RAIZ/lab/tir/inicializar_reserva.py" || return
+  echo "plab-$1 pronto (fonte reserva inicializada)"
+}
+
+# A base vazia da reserva nasce com o Admin sem senha, e o login da interface nova (PO UI) nao aceita
+# senha vazia. Nao ha API documentada para gravar senha, e o hash do Protheus nao e reproduzivel
+# (testado em 05/11/2026). O que funciona: copiar o registro inteiro do Admin (usr_id 000000, com
+# senha e checksum) de uma base em que a senha ja e a do .env. Copiar so o hash faz o Protheus
+# acusar "Checksum do administrador foi violado". A fonte e a base principal local da release
+# (volume plab-<rel>_pgdata), lida por um Postgres temporario sem rede da propria imagem principal,
+# com a release na reserva (o banco principal parado). O registro passa so por variavel e pela
+# entrada padrao do psql: nunca em argumento, log ou arquivo.
+importar_admin_principal() { # release
+  local rel=$1 dados img alvo id json orig dest colunas sql_cols
+  dados=$(volume_dados "$rel"); img="PLAB_${rel}_IMG_DB"
+  if ! volume_existe "$dados" || [ -z "${!img:-}" ] || ! docker image inspect "${!img}" >/dev/null 2>&1; then
+    echo "plab: aviso: sem base principal local da $rel (volume $dados e imagem ${!img:-?}); o Admin da" >&2
+    echo "  reserva continua sem senha. Defina-a pelo SmartClient desktop (README > Fonte reserva)." >&2
+    return 6
+  fi
+  alvo=$(sed -n 's/^ *- pgdata:\(.*\)$/\1/p' "$RAIZ/stacks/$rel/compose.yaml" | head -1)
+  [ -n "$alvo" ] || { echo "plab: montagem do pgdata nao encontrada em stacks/$rel/compose.yaml" >&2; return 5; }
+  echo "importando o Admin da base principal local ($dados)..."
+  id=$(docker run -d --rm --network none --label "$ROTULO_DONO=plab" -v "$dados:$alvo" "${!img}") || return 5
+  for _ in $(seq 1 60); do
+    docker exec "$id" pg_isready -q -h 127.0.0.1 >/dev/null 2>&1 && break
+    sleep 2
+  done
+  # shellcheck disable=SC2016 # expandido dentro do container, de proposito
+  json=$(docker exec "$id" sh -c 'PGCLIENTENCODING=UTF8 PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 -U postgres -d protheus -At -c "select row_to_json(u) from sys_usr u where usr_id = '\''000000'\'' and d_e_l_e_t_ = '\'' '\''"' 2>/dev/null)
+  # shellcheck disable=SC2016
+  orig=$(docker exec "$id" sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 -U postgres -d protheus -At -c "select column_name from information_schema.columns where table_name = '\''sys_usr'\'' order by 1"' 2>/dev/null)
+  docker stop "$id" >/dev/null 2>&1 || true
+  [[ $json == \{* ]] || { echo "plab: Admin nao encontrado na base principal da $rel" >&2; return 5; }
+  # shellcheck disable=SC2016
+  dest=$(compose "$rel" exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 -U postgres -d protheus -At -c "select column_name from information_schema.columns where table_name = '\''sys_usr'\'' order by 1"') || return 5
+  colunas=$(comm -12 <(sort <<<"$orig") <(sort <<<"$dest") | grep -vxE 'r_e_c_n_o_|r_e_c_d_e_l_' | paste -sd, -)
+  [ -n "$colunas" ] || { echo "plab: sys_usr sem colunas em comum entre as bases da $rel" >&2; return 5; }
+  sql_cols=$colunas
+  # shellcheck disable=SC2016
+  if printf 'update sys_usr t set (%s) = (select %s from json_populate_record(null::sys_usr, $plabjson$%s$plabjson$::json)) where t.usr_id = %s and t.d_e_l_e_t_ = %s;\n' \
+       "$sql_cols" "$sql_cols" "$json" "'000000'" "' '" \
+     | compose "$rel" exec -T db sh -c 'PGCLIENTENCODING=UTF8 PGPASSWORD="$POSTGRES_PASSWORD" exec psql -h 127.0.0.1 -U postgres -d protheus -At -v ON_ERROR_STOP=1' \
+     | grep -qx 'UPDATE 1'; then
+    echo "Admin importado (senha igual a da base principal da $rel)"
+  else
+    echo "plab: falha ao gravar o Admin na base da reserva da $rel" >&2
+    return 5
+  fi
 }
 
 cmd_inicializar() {

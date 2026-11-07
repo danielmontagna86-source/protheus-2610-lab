@@ -28,15 +28,17 @@ while IFS=$'\x1f' read -r nome releases; do
   total=$((total + 1))
   case ",$releases," in *",$rel,"*) ;; *) echo "[--] $nome: nao confirmado para a $rel (pulado)"; pulados=$((pulados + 1)); continue ;; esac
   rodar_gravacao "$base/$nome" "$base/$nome.out"
-  repetido=""
-  # Mesma regra do 'lab cenarios' (issue #21): refaz desde o login, uma vez, so quando a sessao nao
-  # abriu por causa do aviso de requisicao e nenhum formulario foi preenchido (nada gravado).
-  if ! grep -q '^\[grav\] OK' "$base/$nome.out" && grep -q 'aviso de requisicao' "$base/$nome.out" \
-     && ! grep -q '^\[grav\] preenchidos' "$base/$nome.out"; then
-    mv "$base/$nome.out" "$base/$nome-1a-tentativa.out"
-    rodar_gravacao "$base/$nome-repeticao" "$base/$nome.out"
-    repetido=" (refeito do login apos aviso de requisicao)"
-  fi
+  repetido=""; n=0
+  # Mesma regra do 'lab cenarios' (issue #21): refaz desde o login, ate PLAB_REPETICOES_AVISO vezes
+  # (padrao 3), so quando a sessao nao abriu por causa do aviso de requisicao e nenhum formulario foi
+  # preenchido (nada gravado).
+  while ! grep -q '^\[grav\] OK' "$base/$nome.out" && grep -q 'aviso de requisicao' "$base/$nome.out" \
+        && ! grep -q '^\[grav\] preenchidos' "$base/$nome.out" && [ "$n" -lt "${PLAB_REPETICOES_AVISO:-3}" ]; do
+    n=$((n + 1))
+    mv "$base/$nome.out" "$base/$nome-tentativa$n.out"
+    rodar_gravacao "$base/$nome-repeticao$n" "$base/$nome.out"
+    repetido=" (refeito do login $n vez(es) apos aviso de requisicao)"
+  done
   linha=$(grep -E '^\[grav\] (OK|FALHOU)' "$base/$nome.out" | tail -n 1 | sed 's/^\[grav\] //')
   if grep -q '^\[grav\] OK' "$base/$nome.out"; then echo "[ok] $nome: $linha$repetido"
   else echo "[XX] $nome: ${linha:-ver $base/$nome.out}$repetido"; falhas=$((falhas + 1)); fi

@@ -14,9 +14,9 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
 - Fonte principal das duas: imagens de comunidade `emebatista/*:1.0.0` (base restaurada), fixadas
   por digest no `.env.example`. Não existe tag 2610 oficial (Docker Hub verificado em 2026-11-02);
   o dono autorizou fonte não oficial.
-- Fonte reserva (FR-005, T018, issue #3): implementada em 05/11/2026 com as imagens
-  `feliperaposo/*`, selecionada por `PLAB_<rel>_FONTE=reserva`. Na 2610 vai até o doctor OK; na
-  2510 está incompleta. Detalhes em "Fonte reserva" abaixo.
+- Fonte reserva (FR-005, T018, issue #3): imagens `feliperaposo/*`, selecionadas por
+  `PLAB_<rel>_FONTE=reserva`. Desde 06/11/2026 funciona nas duas releases: smoke PRONTO e cenários
+  sem falha, sobre base vazia. Detalhes em "Fonte reserva" abaixo.
 - Fora: DeskFlow, SmartView, container exclusivo, `docker.sock`, `pid: host`, `privileged`.
 - Portas: 2610 → 26234/26321/26181/26432/26020; 2510 → 25234/25321/25181/25432/25020, todas em
   `127.0.0.1` e configuráveis no `.env`.
@@ -106,10 +106,79 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   - **Troca de fonte.** A reserva das duas releases passou a ser `feliperaposo/*`, publicada em
     22/10/2026. A `totvsengpro/*` saiu: o AppServer dela exige RPO e dicionário fornecidos pelo
     usuário, e o lab não redistribui esses arquivos.
-  - **Desvio que fica:** na reserva a base vem vazia (sem a base padrão), e a 2510 ainda não
-    funciona. Ver "Fonte reserva" abaixo.
+  - **Desvio que fica:** na reserva a base vem vazia (sem a base padrão). O Admin vem da base
+    principal local; sem ela, a senha é definida à mão uma vez. Ver "Fonte reserva" abaixo.
 
-## Fonte reserva (05/11/2026, issue #3)
+## Fonte reserva: funcionando nas duas releases (06/11/2026, issue #3)
+
+Pedido do dono em 06/11/2026: "corrija os problemas ... tem que conseguir de novo sem ERROS".
+
+- **Admin:** a base vazia nasce com o Admin sem senha, e a interface nova (PO UI) não aceita senha
+  vazia. O que foi testado e não serve:
+  - forçar o envio do formulário: a tela fica em "Carregando..." para sempre;
+  - REST com senha vazia: responde 401;
+  - recalcular o hash: 87.906 variações de SHA-256/HMAC/PadR testadas, sem coincidência;
+  - copiar só o hash: o Protheus acusa "Checksum do administrador foi violado", e o reset oficial
+    exige token do suporte TOTVS;
+  - API AdvPL para gravar senha: não há função documentada no TDN nem no corpus validado.
+
+  O que funciona: copiar o registro inteiro do Admin (`sys_usr`, `usr_id 000000`, com senha e
+  `usr_chksum`) da base principal local, por um Postgres temporário sem rede da imagem principal.
+  Funções `importar_admin_principal` (bash) e `Importar-Admin-Principal` (PowerShell).
+- **Dicionário:** a empresa 99 nasce sem dicionário (faltam SX2, SX3 e outras). No primeiro
+  SIGACFG, "Criar a partir do systemload" leva cerca de 3 min. Depois vêm o tipo de ambiente
+  "3 - Desenvolvimento", o aviso de base de Desenvolvimento e Moedas (sempre Cancelar).
+- **`plab inicializar`** passou a ter 4 etapas: assistente, Admin, configurador e primeiro acesso
+  aos módulos 5, 2, 4 e 6. Diálogo desconhecido para a etapa com captura.
+- **2510:**
+  - o `/app-root` nativo dessa imagem falha ("REST could not be initialized!"), então o AppServer
+    vai para a 1235 e o `/app-root` para o HTTPSERVER da 9995;
+  - a porta 1234 ficou primeiro com o `app-root-proxy` copiado da imagem 2610. Ele vazava
+    conexões: 36 processos vivos e 136 conexões em `CLOSE_WAIT` depois de uma bateria, e as
+    últimas 7 sessões falharam (Page.screenshot e login sem iframe);
+  - foi trocado pelo serviço `approot`, um HAProxy oficial 3.0.30 fixado por digest
+    (`stacks/reserva/haproxy-approot.cfg`), que é dono da rede; o AppServer usa
+    `network_mode: service:approot`, então reiniciá-lo não derruba nada;
+  - o PostgreSQL 18 é recusado ("Banco de dados não homologado"), então a reserva usa o 16.
+- **2610, issue #21:**
+  - Medições em 8 logins: com o `/app-root` no HTTPSERVER, 5 a 6 avisos com o proxy do autor e 3
+    seguidos com o HAProxy; com o `/app-root` nativo, 1 a 2, o patamar da principal.
+  - O nativo não sobe em base nova: sem `[MPP_CLima]` o AppServer cai em "FAILURE TO START REST
+    SERVER"; com ela, o `/app-root` não responde.
+  - Solução: HTTPSERVER durante o `inicializar`; no fim, marca `.plab-base-inicializada` no volume
+    da reserva e reinício do AppServer no nativo (`PLAB_RES_APPROOT_NATIVO=sim`, só na 2610). O
+    HAProxy desvia o `/app-root` para a 1235 quando a 9995 não está no ar.
+  - As duas reservas voltaram sozinhas e healthy depois de um reinício do Windows (06/11/2026).
+  - Depois de compilar, o `/app-root` nativo responde 502 por alguns segundos (8 de 60
+    requisições). O iframe do login não tenta de novo sozinho, então o assistente e o `entrar`
+    passaram a reabrir o WebApp nesse caso.
+  - O `inicializar` termina com um login de verificação no módulo 5: logo depois do reinício, o
+    aviso da issue #21 aparece mais vezes.
+- **Help TAMINCOPAT** ("Tamanho dos campos CQ8_CODIGO ou CQ9_CODIGO inválido"): aparece no
+  primeiro acesso a Contas a Pagar numa base nova da reserva, nas duas releases. É do dicionário
+  da imagem e não volta depois. Na base vazia, o teste fecha esse Help com "Fechar".
+  - Hipótese testada e descartada: os avisos mostram "enviados 126, recebidos 125" antes do clique,
+    mas esperar as respostas não mudou o resultado (os logins bons mostram o mesmo retrato).
+  - **Causa encontrada** no JavaScript da tela de sessão (`onSessionSettingSubmit`, chave
+    `str0024`):
+    - o "Entrar" espera cerca de 2,5 s o formulário sair do estado pendente, ou seja, a validação
+      assíncrona dos códigos de grupo, filial e módulo no servidor;
+    - se ele não sai, mostra o aviso sem enviar nada;
+    - uma resposta de validação que não chega deixa o formulário pendente para sempre, por isso
+      clicar de novo na mesma tela nunca resolvia.
+
+    Correção em `plab_pw.sessao`/`entrar_sessao`: no aviso, os códigos são preenchidos de novo
+    (campo limpo e preenchido, o que gera validações novas) e o clique é repetido, até 3 vezes na
+    mesma tela.
+  - Repetição no aviso: o smoke, os cenários e as gravações passaram a refazer desde o login até
+    `PLAB_REPETICOES_AVISO` vezes (padrão 3; antes era 1).
+- **Cenários na base vazia** (detectada pelo alias `appserver-<rel>-reserva`):
+  - browse sem registros conta como aberto;
+  - Visualizar é pulado;
+  - bloco `reserva` opcional no `cenarios.json` (Cotações na 2510).
+  - O `smoke_ui.py` fecha "Novidades do Produto" quando ela vem antes da tela de Parâmetros.
+
+## Fonte reserva (05/11/2026, issue #3; histórico, superado pela seção acima)
 
 - **Implementação:**
   - `stacks/reserva/<rel>/compose.yaml`, no mesmo project, portas e nomes da principal, com volumes

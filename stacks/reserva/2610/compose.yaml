@@ -106,6 +106,30 @@ services:
     logging: *logging
     network_mode: none
 
+  # Porta 1234 da 2610: HAProxy (stacks/reserva/haproxy-approot.cfg) divide a porta multiprotocolo
+  # entre o AppServer (1235) e o HTTPSERVER do /app-root (9995), o esquema que a imagem ja traz, no
+  # lugar do app-root-proxy dela. O /app-root nativo nao serve: em base nova o REST dele derruba o
+  # AppServer ("FAILURE TO START REST SERVER") ou, com [MPP_CLima], nao responde.
+  # E dono da rede: o appserver entra nela (network_mode), entao reiniciar o appserver
+  # (plab restart 2610, passo 5 do smoke) nao derruba nada, e as portas internas do WebApp continuam
+  # no mesmo endereco. Portas publicadas e aliases ficam aqui.
+  approot:
+    image: ${PLAB_RES_IMG_HAPROXY:?defina PLAB_RES_IMG_HAPROXY no .env}
+    restart: ${PLAB_RESTART:-unless-stopped}
+    ports:
+      - "127.0.0.1:${PLAB_2610_PORT_TCP:-26234}:1234"
+      - "127.0.0.1:${PLAB_2610_PORT_WEBAPP:-26321}:50001"
+      - "127.0.0.1:${PLAB_2610_PORT_REST:-26181}:8181"
+    volumes:
+      - ../haproxy-approot.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    mem_limit: 256m
+    logging: *logging
+    networks:
+      default: {}
+      plab:
+        # appserver-2610-reserva: o lab detecta a fonte reserva (base vazia) por esse nome.
+        aliases: [appserver-2610, appserver-2610-reserva]
+
   appserver:
     image: ${PLAB_2610_RES_IMG_APPSERVER:?defina PLAB_2610_RES_IMG_APPSERVER no .env}
     platform: linux/amd64
@@ -115,16 +139,16 @@ services:
       - APPSERVER_DATABASE=POSTGRES
       - PLAB_RES_ENV=${PLAB_2610_ENV:-P2610}
       - PLAB_RES_ENV_COMPILA=${PLAB_2610_ENV_COMPILA:-P2610_COMPILA}
-    ports:
-      # 1234: proxy da imagem (multiprotocolo na 1235 + /app-root do HTTPSERVER na 9995).
-      - "127.0.0.1:${PLAB_2610_PORT_TCP:-26234}:1234"
-      - "127.0.0.1:${PLAB_2610_PORT_WEBAPP:-26321}:50001"
-      - "127.0.0.1:${PLAB_2610_PORT_REST:-26181}:8181"
+      # /app-root nativo depois do plab inicializar (ver stacks/reserva/appserver-reserva.sh, 3b).
+      - PLAB_RES_APPROOT_NATIVO=sim
+    # Rede do servico approot (portas e aliases estao la).
+    network_mode: "service:approot"
     volumes:
       - rpo-compila-reserva:/protheus12/apo_compila
       - ../appserver-reserva.sh:/plab/appserver-reserva.sh:ro
     ulimits: *ulimits
     depends_on:
+      approot: {condition: service_started}
       dbaccess: {condition: service_healthy}
       rpo-init: {condition: service_completed_successfully}
     healthcheck:
@@ -139,10 +163,6 @@ services:
       start_period: 120s
     mem_limit: ${PLAB_MEM_APPSERVER:-6g}
     logging: *logging
-    networks:
-      default: {}
-      plab:
-        aliases: [appserver-2610]
 
 volumes:
   pgdata-reserva:

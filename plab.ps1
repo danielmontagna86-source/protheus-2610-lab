@@ -18,6 +18,7 @@ $cRotuloDono = 'com.plab.owner'
 $aReleases = @('2610', '2510')
 $lLabDev = $false  # PLAB_LAB_DEV=1 no .env (Ler-Env) liga o modo desenvolvimento do lab
 $oFonte = @{}      # PLAB_<rel>_FONTE do .env (Ler-Env): principal (padrao) ou reserva
+$oEnvAtual = @{}   # ultimo .env lido (Ler-Env)
 
 function Sair([int] $nCodigo, [string] $cMsg) {
     if ($cMsg) { [Console]::Error.WriteLine("plab: $cMsg") }
@@ -43,6 +44,7 @@ function Ler-Env {
     }
     # PLAB_LAB_DEV=1: o compose do lab soma lab\compose.dev.yaml (ver Args-Compose).
     $script:lLabDev = ($oEnv['PLAB_LAB_DEV'] -eq '1')
+    $script:oEnvAtual = $oEnv  # imagens da release (Importar-Admin-Principal)
     # Fonte das imagens por release (stacks\reserva\<rel> com reserva; ver README > Fonte reserva).
     foreach ($cRel in $aReleases) {
         $cFonte = $oEnv["PLAB_${cRel}_FONTE"]
@@ -247,10 +249,15 @@ function Cmd-Logs([string] $cAlvoArg) {
     Compose $cAlvoArg $aArgs | Out-Null
 }
 
-# Base vazia da fonte reserva: segue o assistente do Protheus (empresa TESTE 99/01) ate a tela de
-# login, pelo container lab. O script e copiado para o container (docker cp): pela entrada padrao o
-# PowerShell 5.1 trocaria os acentos que o script procura na tela. Roda antes de qualquer acesso ao
-# /app-root/ (ver stacks\reserva\<rel>\compose.yaml).
+# Base vazia da fonte reserva, em quatro passos (o up ja chama, depois de subir todos os alvos):
+#  1. assistente do Protheus ate a tela de login (empresa TESTE 99/01, Brasil);
+#  2. Admin importado da base principal local da release (Importar-Admin-Principal);
+#  3. Configurador: dicionario da empresa 99 criado a partir do systemload da imagem e tipo de
+#     ambiente Desenvolvimento;
+#  4. primeiro acesso com o Admin nos modulos do smoke e dos cenarios (dialogos do primeiro uso) e
+#     Log Off. Detalhes em lab/tir/inicializar_reserva.py.
+# O script e copiado para o container lab (docker cp): pela entrada padrao o PowerShell 5.1 trocaria
+# os acentos que o script procura na tela. Roda antes de qualquer acesso ao /app-root/.
 function Inicializar-Reserva([string] $cRel) {
     if (-not (Projeto-Rodando 'lab')) {
         Write-Warning ("container lab parado; a base da reserva ainda nao foi inicializada. " +
@@ -262,8 +269,92 @@ function Inicializar-Reserva([string] $cRel) {
     $cId = & docker @aCompose ps -q lab
     & docker cp (Join-Path $cRaiz 'lab\tir\inicializar_reserva.py') "${cId}:/tmp/inicializar_reserva.py" | Out-Null
     if ($LASTEXITCODE -ne 0) { return 5 }
-    & docker exec $cId python -u /tmp/inicializar_reserva.py $cRel | Out-Host
-    return $LASTEXITCODE
+    & docker exec $cId python -u /tmp/inicializar_reserva.py $cRel assistente | Out-Host
+    if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+    $nRc = Importar-Admin-Principal $cRel
+    if ($nRc -ne 0) { return $nRc }
+    Write-Host 'Configurador: dicionario a partir do systemload e tipo de ambiente (cerca de 5 min)...'
+    & docker exec $cId python -u /tmp/inicializar_reserva.py $cRel configurador | Out-Host
+    if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+    Write-Host 'primeiro acesso com o Admin (modulos do smoke e dos cenarios)...'
+    & docker exec $cId python -u /tmp/inicializar_reserva.py $cRel primeiro-acesso | Out-Host
+    if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+    return (Ativar-Approot-Nativo $cRel)
+}
+
+# Mesma regra do plab (bash), funcao ativar_approot_nativo: onde o compose define
+# PLAB_RES_APPROOT_NATIVO=sim (2610), grava a marca de base inicializada e reinicia o appserver, que
+# passa a servir o /app-root nativo. Sem aspas duplas nos argumentos (PowerShell 5.1).
+function Ativar-Approot-Nativo([string] $cRel) {
+    $aBase = Args-Compose $cRel
+    & docker @aBase exec -T appserver sh -c 'test x$PLAB_RES_APPROOT_NATIVO = xsim' *> $null
+    if ($LASTEXITCODE -ne 0) { return 0 }
+    & docker @aBase exec -T appserver touch /protheus12/apo_compila/.plab-base-inicializada
+    if ($LASTEXITCODE -ne 0) { return 5 }
+    Write-Host "base inicializada: /app-root nativo (reiniciando o appserver de $(Projeto $cRel))..."
+    & docker @aBase restart appserver *> $null
+    if ($LASTEXITCODE -ne 0) { return 5 }
+    Start-Sleep -Seconds 20
+    if (-not (Esperar-Healthy $cRel 'appserver')) { Write-Warning "appserver de $(Projeto $cRel) nao ficou healthy"; return 5 }
+    # Confere o login com o /app-root nativo (e aquece o AppServer recem-reiniciado).
+    Write-Host 'conferindo o login com o /app-root nativo...'
+    $aLab = Args-Compose 'lab'
+    $cId = & docker @aLab ps -q lab
+    & docker exec $cId python -u /tmp/inicializar_reserva.py $cRel primeiro-acesso 5 | Out-Host
+    if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+    Write-Host "$(Projeto $cRel) pronto (fonte reserva inicializada)"
+    return 0
+}
+
+# Copia o registro inteiro do Admin (usr_id 000000, com senha e checksum) da base principal local da
+# release para a base da reserva; mesma regra e motivo do plab (bash), funcao importar_admin_principal.
+# O registro passa so por variavel e pela entrada padrao do psql (UTF-8): nunca em argumento ou arquivo.
+function Importar-Admin-Principal([string] $cRel) {
+    $cDados = "plab-${cRel}_pgdata"
+    $cImg = $script:oEnvAtual["PLAB_${cRel}_IMG_DB"]
+    & docker image inspect $cImg *> $null
+    $lImagem = ($cImg -and $LASTEXITCODE -eq 0)
+    if (-not (Volume-Existe $cDados) -or -not $lImagem) {
+        Write-Warning ("sem base principal local da $cRel (volume $cDados e imagem $cImg); o Admin da reserva " +
+            'continua sem senha. Defina-a pelo SmartClient desktop (README > Fonte reserva).')
+        return 6
+    }
+    $cAlvo = (Select-String -Path (Join-Path $cRaiz "stacks\$cRel\compose.yaml") -Pattern '^\s*- pgdata:(.*)$' | Select-Object -First 1).Matches[0].Groups[1].Value.Trim()
+    Write-Host "importando o Admin da base principal local ($cDados)..."
+    $oEncSaida = [Console]::OutputEncoding; $oEncEntrada = $OutputEncoding
+    $oUtf8 = New-Object System.Text.UTF8Encoding $false
+    [Console]::OutputEncoding = $oUtf8; $script:OutputEncoding = $oUtf8
+    try {
+        $cId = & docker run -d --rm --network none --label "$cRotuloDono=plab" -v "${cDados}:$cAlvo" $cImg
+        if ($LASTEXITCODE -ne 0) { return 5 }
+        for ($i = 0; $i -lt 60; $i++) {
+            & docker exec $cId pg_isready -q -h 127.0.0.1 *> $null
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 2
+        }
+        # Sem aspas duplas nos argumentos: o PowerShell 5.1 as estraga ao chamar programas nativos.
+        # PGPASSWORD=$POSTGRES_PASSWORD e uma atribuicao (o sh nao divide nem expande o valor); o SQL
+        # vai pela entrada padrao.
+        $cPsql = 'PGCLIENTENCODING=UTF8 PGPASSWORD=$POSTGRES_PASSWORD exec psql -h 127.0.0.1 -U postgres -d protheus -At -v ON_ERROR_STOP=1'
+        $cSqlLer = "select row_to_json(u) from sys_usr u where usr_id = '000000' and d_e_l_e_t_ = ' ';"
+        $cSqlColunas = "select column_name from information_schema.columns where table_name = 'sys_usr' order by 1;"
+        $cJson = (($cSqlLer | & docker exec -i $cId sh -c $cPsql 2>$null) -join '').Trim()
+        $aOrig = @($cSqlColunas | & docker exec -i $cId sh -c $cPsql 2>$null)
+        & docker stop $cId *> $null
+        if (-not $cJson.StartsWith('{')) { Write-Warning "Admin nao encontrado na base principal da $cRel"; return 5 }
+        $aBase = Args-Compose $cRel
+        $aDest = @($cSqlColunas | & docker @aBase exec -T db sh -c $cPsql)
+        $aCols = @($aOrig | Where-Object { $aDest -contains $_ -and $_ -notin @('r_e_c_n_o_', 'r_e_c_d_e_l_') })
+        if ($aCols.Count -eq 0) { Write-Warning "sys_usr sem colunas em comum entre as bases da $cRel"; return 5 }
+        $cCols = $aCols -join ','
+        $cSql = "update sys_usr t set ($cCols) = (select $cCols from json_populate_record(null::sys_usr, `$plabjson`$$cJson`$plabjson`$::json)) where t.usr_id = '000000' and t.d_e_l_e_t_ = ' ';"
+        $aSaida = @($cSql | & docker @aBase exec -T db sh -c $cPsql)
+        if ($aSaida -contains 'UPDATE 1') { Write-Host "Admin importado (senha igual a da base principal da $cRel)"; return 0 }
+        Write-Warning "falha ao gravar o Admin na base da reserva da $cRel"
+        return 5
+    } finally {
+        [Console]::OutputEncoding = $oEncSaida; $script:OutputEncoding = $oEncEntrada
+    }
 }
 
 function Cmd-Inicializar([string] $cRel) {

@@ -120,10 +120,19 @@ confirmar a tela "Parametros" com os valores padrão), `visualizar` (`true` = ab
 registro em Visualizar e fechar) e `help` (código do Help esperado no lugar do
 browse, ex.: `RECNO`; o cenário passa se o Help aparecer e for fechado).
 
-Repetição: um cenário só é refeito, uma vez e desde o login, quando a interface nova da 2610 mostra
-"Não foi possível enviar a requisição" na tela de sessão e a sessão não abre (intermitente, visto em
-03 e 04/11/2026, causa não confirmada). A linha do cenário diz que foi refeito, a 1ª tentativa fica em
-`<nome>-1a-tentativa.out` e o resumo conta `repeticoes=R`. Qualquer outra falha conta direto.
+Repetição: um cenário só é refeito desde o login quando a interface nova da 2610 mostra "Não foi
+possível enviar a requisição" na tela de sessão e a sessão não abre. O aviso é intermitente, foi
+visto desde 03/11/2026 e a causa não está confirmada (issue #21). O limite é de
+`PLAB_REPETICOES_AVISO` vezes (padrão 3; até 06/11/2026 era 1, e o aviso às vezes voltava na
+repetição). A linha do cenário diz quantas vezes ele foi refeito, as tentativas anteriores ficam em
+`<nome>-tentativa<n>.out` e o resumo conta `repeticoes=R`. Qualquer outra falha conta direto.
+
+Fonte reserva (base vazia, ver o README da raiz): o `lab cenarios` detecta a reserva pelo alias
+`appserver-<rel>-reserva`. Nesse caso:
+- browse aberto sem registros conta como aberto ("grade visivel sem registros");
+- cenários com `visualizar` são pulados, porque não há registro para abrir;
+- se o cenário tiver o bloco opcional `reserva` (`menu`, `aba`, `titulo`; `titulo` vazio confere a
+  grade), ele substitui os campos de mesmo nome.
 
 ## Erros que o teste reconhece
 

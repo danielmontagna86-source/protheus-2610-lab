@@ -169,38 +169,45 @@ digest no `.env.example`.
 
 1. No `.env`, defina `PLAB_<rel>_FONTE=reserva`, as `PLAB_<rel>_RES_IMG_*` (copie do
    `.env.example`) e as duas senhas do Postgres da reserva, `PLAB_RES_DB_ROOT_PASSWORD` e
-   `PLAB_RES_DB_PASSWORD`, escolhidas por você.
+   `PLAB_RES_DB_PASSWORD`, escolhidas por você, e a `PLAB_RES_IMG_HAPROXY` (HAProxy oficial, na
+   porta 1234 das reservas).
 2. Rode `./plab up <rel>` com o container lab no ar. O plab sobe `stacks/reserva/<rel>/compose.yaml`
-   no mesmo project (`plab-<rel>`), com as mesmas portas e os mesmos nomes de rede. Depois roda
-   `./plab inicializar <rel>`, que segue o assistente do Protheus na base vazia: "Criação de
-   empresa" → empresa TESTE 99/01 → país Brasil → tela de login, em cerca de 3 minutos.
-3. Defina a senha do Admin: veja a pendência abaixo.
-4. Para voltar, use `PLAB_<rel>_FONTE=principal` e `./plab up <rel>`. Os dados da principal ficam
+   no mesmo project (`plab-<rel>`), com as mesmas portas e os mesmos nomes de rede, e depois roda
+   `./plab inicializar <rel>`, que prepara a base vazia em quatro etapas (cerca de 10 minutos):
+   1. **Assistente do Protheus:** "Criação de empresa" → empresa TESTE 99/01 → país Brasil.
+   2. **Admin:** importado da base principal local da mesma release (volume
+      `plab-<rel>_pgdata`), onde a senha já é a do `.env`.
+   3. **Configurador:** cria o dicionário da empresa 99 a partir do systemload da imagem e
+      define o tipo de ambiente "3 - Desenvolvimento".
+   4. **Primeiro acesso:** entra nos módulos 5, 2, 4 e 6 (os do smoke e dos cenários) e trata os
+      diálogos de primeiro uso. Na localização, troca Angola por Brasil. As Moedas são canceladas,
+      sem gravar. Cada sessão sai pelo Log Off.
+3. Para voltar, use `PLAB_<rel>_FONTE=principal` e `./plab up <rel>`. Os dados da principal ficam
    intactos, porque a reserva usa volumes próprios (`plab-<rel>_pgdata-reserva` e
    `plab-<rel>_rpo-compila-reserva`).
 
-Situação verificada em 05/11/2026:
-
-- **2610:**
-  - `./plab up 2610` → healthy.
-  - `./plab inicializar 2610` → login em cerca de 3 minutos.
-  - `lab doctor 2610` → OK.
-  - `lab smoke 2610` para no login (ver o Admin abaixo).
-- **2510:** sobe healthy e passa por "Criação de empresa" e "Localização". Depois a interface nova
-  (`/app-root/`) não responde, nem com `./plab restart 2510`: HTTP 000 no doctor, "404 - Unknow
-  status" no navegador. A imagem 2510 do autor não traz o proxy do `/app-root` que a 2610 dele
-  traz. Ainda não é uma reserva utilizável.
-
 Diferenças da principal:
 
-- **Base vazia.** A reserva não traz a base padrão restaurada nem os dados de demonstração. O
-  doctor passa, mas cenários que dependem de registros da base padrão não valem para ela.
-- **Admin sem senha, e a pendência que isso cria.** A interface nova (PO UI) não aceita senha em
-  branco: o botão "Entrar" fica desativado, e o REST responde 401 para `admin` sem senha. O lab
-  ainda não define essa senha sozinho. Entre uma vez pelo SmartClient desktop na porta TCP
-  (`127.0.0.1:<PLAB_<rel>_PORT_TCP>`), cujo login clássico aceita a senha em branco. No
-  Configurador, troque a senha do Admin pela mesma do `PLAB_<rel>_ADMIN_PASSWORD`. Até isso ser
-  feito, `lab smoke` para no passo 2 com "Usuário não autenticado" (visto em 05/11/2026).
+- **Base vazia.** A reserva não traz a base padrão restaurada nem os dados de demonstração: só a
+  empresa TESTE com o dicionário. O `lab cenarios` detecta a reserva pelo alias
+  `appserver-<rel>-reserva` e se ajusta:
+  - browse aberto sem registros conta como aberto;
+  - cenários de Visualizar, que precisam de um registro, são pulados com o motivo;
+  - quando o menu da base da imagem é outro, vale o bloco `reserva` do `cenarios.json` (ex.: na
+    2510, Cotações fica em "Administração de Compras").
+- **PostgreSQL:** 18 na 2610 e 16 na 2510. A 2510 recusa o 18 com "Banco de dados não homologado
+  para uso do sistema".
+- **O Admin vem da base principal local.** A base vazia nasce com o Admin sem senha, e a interface
+  nova (PO UI) não aceita senha em branco. O lab não tem como gravar uma senha:
+  - não há API documentada para isso;
+  - o hash do Protheus não é reproduzível;
+  - copiar só o hash faz o Protheus acusar "Checksum do administrador foi violado".
+
+  Por isso o `inicializar` copia o registro inteiro do Admin (senha e checksum) da base principal
+  local, por um Postgres temporário sem rede. O registro passa só pela entrada padrão do `psql`.
+  Sem a base principal local (máquina nova), essa etapa avisa e para. Nesse caso, entre uma vez
+  pelo SmartClient desktop na porta TCP, cujo login clássico aceita a senha em branco, troque a
+  senha do Admin no Configurador e rode `./plab inicializar <rel>` de novo.
 - **Nada pode abrir o `/app-root/` antes do `./plab inicializar`.** A primeira chamada ao
   `/app-root/` inicia o ambiente por jobs internos e deixa a base pela metade ("Inconsistência nas
   tabelas de usuário"). Por isso o healthcheck da reserva não abre o `/app-root/`. Se acontecer,
@@ -215,10 +222,28 @@ Diferenças da principal:
   - Nomes exclusivos para DBAccess e License Server. Na rede `plab`, o nome `dbaccess` também
     aponta para os DBAccess das stacks principais. Em 05/11/2026, um teste sem esse ajuste abriu
     4 conexões curtas no DBAccess da 2510 principal; o smoke da 2510 seguiu PRONTO.
+  - AppServer na porta 1235. A 1234 fica com o serviço `approot`, um HAProxy oficial
+    (`stacks/reserva/haproxy-approot.cfg`) que é dono da rede, enquanto o AppServer usa a rede
+    dele (reiniciar o AppServer não derruba nada). O `app-root-proxy` que vem na imagem 2610 do
+    autor fica desligado: ele deixava conexões presas em `CLOSE_WAIT` e degradava o AppServer
+    depois de umas 25 sessões.
+  - `/app-root` (login da interface nova):
+    - **2510:** sempre pelo HTTPSERVER da 9995. O `/app-root` nativo dessa imagem falha ("REST
+      could not be initialized!").
+    - **2610:** pelo HTTPSERVER durante a inicialização, porque o nativo não sobe em base nova. No
+      fim do `inicializar`, o lab grava uma marca no volume da reserva e reinicia o AppServer, que
+      passa a usar o `/app-root` nativo, sem a seção `[MPP_CLima]`. O HAProxy desvia sozinho
+      para o nativo quando a 9995 não está no ar. Com o HTTPSERVER, o aviso "Não foi possível
+      enviar a requisição" (issue #21) apareceu em 3 a 6 de 8 logins na 2610; com o nativo, em 1
+      a 2 de 8, o mesmo patamar da principal. O `inicializar` termina com um login de
+      verificação no módulo 5, que também aquece o AppServer recém-reiniciado.
+    - Logo depois de uma compilação, o `/app-root` nativo da 2610 responde 502 por alguns
+      segundos. O lab abre o WebApp de novo quando vê essa página.
 - **Sem cópias de base.** `snapshot` e `restore` funcionam só na fonte principal.
 - **A oficial TOTVS (`totvsengpro/*`) não serve de reserva.** O AppServer dela exige que você
   forneça RPO e dicionário (`tttm120.rpo`, `sxsbra.txt`, `sx2.unq`), arquivos licenciados que o
   lab não redistribui. Por isso ela não sobe "pelo mesmo comando".
+
 Componentes das imagens originais **não usados**: DeskFlow (monta `docker.sock`, `pid: host`),
 SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 

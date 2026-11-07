@@ -30,12 +30,38 @@ if ! grep -q "^\[$comp\]" "$ini"; then
   printf '\n[%s]\n%s\n' "$comp" "$secao" >> "$ini"
 fi
 
+# 3b. /app-root (tela de login da interface nova) pelo HTTPSERVER da 9995, com o AppServer na 1235;
+#     a porta 1234 fica com o HAProxy do servico "approot" do compose, que divide a porta
+#     (stacks/reserva/haproxy-approot.cfg). E o esquema que a imagem 2610 ja traz, sem o
+#     app-root-proxy do autor: ele deixava conexoes presas em CLOSE_WAIT e degradava o AppServer
+#     depois de umas 25 sessoes (06/11/2026). O proxy da imagem perde o bit de execucao para o
+#     /protheus.sh nao inicia-lo. O /app-root nativo da porta multiprotocolo nao serve: na 2510 falha
+#     ("REST could not be initialized!"); na 2610, em base nova, derruba o AppServer ("FAILURE TO
+#     START REST SERVER") ou, com a secao [MPP_CLima] da imagem (mantida), nao responde.
+[ -x /usr/local/bin/app-root-proxy ] && chmod -x /usr/local/bin/app-root-proxy
+sed -i -e '/^\[TCP\]/,/^\[/ s/^Port=.*/Port=1235/' "$ini"
+if ! grep -q '^\[APP_ROOT\]' "$ini"; then
+  printf '\n[HTTPSERVER]\nEnable=1\nServers=HTTPAPP\n\n[HTTPAPP]\nHostname=localhost\nPort=9995\nLocations=APP_ROOT\n\n[APP_ROOT]\nPath=/app-root\nRootPath=/protheus12/protheus_data/http-root/app-root\nThreadPool=APP_POOL\n\n[APP_POOL]\nEnvironment=%s\nMinThreads=1\nSlaves=APP_SLAVES\n\n[APP_SLAVES]\nEnvironment=%s\nMinThreads=1\n' \
+    "$amb" "$amb" >> "$ini"
+fi
+# Depois do plab inicializar (marca no volume da reserva) e so onde PLAB_RES_APPROOT_NATIVO=sim
+# (2610): /app-root nativo da porta multiprotocolo (1235, atras do HAProxy), sem o HTTPSERVER. Com o
+# /app-root no HTTPSERVER, o aviso da issue #21 apareceu em 3 a 6 de 8 logins na 2610; nativo, em
+# 1 de 8. O nativo so funciona em base ja inicializada, e precisa sem a secao [MPP_CLima].
+marca=/protheus12/apo_compila/.plab-base-inicializada
+if [ "${PLAB_RES_APPROOT_NATIVO:-nao}" = sim ] && [ -f "$marca" ]; then
+  sed -i -e '/^\[MPP_CLima\]/,/^\[/{/^\[MPP_CLima\]/d;/^NewRestOn/d}' \
+         -e '/^\[HTTPSERVER\]/,/^\[/ s/^Enable=1/Enable=0/' "$ini"
+else
+  sed -i -e '/^\[HTTPSERVER\]/,/^\[/ s/^Enable=0/Enable=1/' "$ini"
+fi
+
 # 4. REST na porta interna que o lab usa (8181, como na principal; a imagem traz 8080).
 sed -i -e '/^\[HTTPREST\]/,/^\[/ s/^Port=.*/Port=8181/' "$ini"
 
-# 5. /app-root/ (a pagina que o lab doctor confere) responde 200. Na 2610 desta imagem o /app-root
-#    vem do HTTPSERVER interno (secao [APP_ROOT]) via proxy na 1234, e sem pagina padrao a raiz
-#    responde 406 "the parameter default page is missing". A 2510 nao tem [APP_ROOT].
+# 5. /app-root/ (a pagina que o lab doctor confere) responde 200: o HTTPSERVER do
+#    /app-root (secao [APP_ROOT]) sem pagina padrao responde 406 "the parameter default page is
+#    missing" na raiz.
 if grep -q '^\[APP_ROOT\]' "$ini"; then
   grep -q '^DefaultPage=' "$ini" || sed -i '/^\[APP_ROOT\]/a DefaultPage=index.html' "$ini"
   raiz_app=/protheus12/protheus_data/http-root/app-root

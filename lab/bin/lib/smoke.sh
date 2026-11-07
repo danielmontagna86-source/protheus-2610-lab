@@ -54,15 +54,18 @@ fi
 #    PLAB_SMOKE_TIR=1 a suite TIR tambem roda, como passo informativo (nao bloqueia o PRONTO).
 PLAB_EVID_DIR="$evid/ui" "$LIB/ui.sh" "$rel" > "$evid/ui.out" 2>&1
 rc=$?
-refeito=""
+refeito=""; n=0
 # Mesma regra do 'lab cenarios': so o aviso de requisicao na tela de sessao (interface nova da
-# 2610, intermitente) justifica refazer o passo desde o login, uma vez (04/11/2026).
-if [ "$rc" -ne 0 ] && grep -q 'aviso de requisicao' "$evid/ui.out"; then
-  mv "$evid/ui.out" "$evid/ui-1a-tentativa.out"
-  PLAB_EVID_DIR="$evid/ui-repeticao" "$LIB/ui.sh" "$rel" > "$evid/ui.out" 2>&1
+# 2610, intermitente; issue #21) justifica refazer o passo desde o login, ate PLAB_REPETICOES_AVISO
+# vezes (padrao 3; era 1 ate 06/11/2026, quando o aviso voltou na repeticao). Tentativas anteriores
+# ficam em ui-tentativa<n>.out.
+while [ "$rc" -ne 0 ] && grep -q 'aviso de requisicao' "$evid/ui.out" && [ "$n" -lt "${PLAB_REPETICOES_AVISO:-3}" ]; do
+  n=$((n + 1))
+  mv "$evid/ui.out" "$evid/ui-tentativa$n.out"
+  PLAB_EVID_DIR="$evid/ui-repeticao$n" "$LIB/ui.sh" "$rel" > "$evid/ui.out" 2>&1
   rc=$?
-  refeito=" (refeito do login apos aviso de requisicao)"
-fi
+  refeito=" (refeito do login $n vez(es) apos aviso de requisicao)"
+done
 linha=$(grep -E '^\[ui\] (OK|FALHOU)' "$evid/ui.out" | tail -n 1 | sed 's/^\[ui\] //')$refeito
 if [ "$rc" -eq 0 ]; then ok 2 interface "${linha:-ok}"
 else falhou 2 interface "rc=$rc ${linha:-ver ui.out}"; fi
