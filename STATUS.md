@@ -178,6 +178,27 @@ Pedido do dono em 06/11/2026: "corrija os problemas ... tem que conseguir de nov
   - bloco `reserva` opcional no `cenarios.json` (Cotações na 2510).
   - O `smoke_ui.py` fecha "Novidades do Produto" quando ela vem antes da tela de Parâmetros.
 
+### Validação final (06 e 07/11/2026)
+
+| Verificação | Resultado |
+|---|---|
+| 2610 reserva do zero pelo `plab.ps1` (`down --volumes` + `up`) | 4 etapas, troca para o nativo e login de verificação: código 0 |
+| 2610 reserva, `plab inicializar` pelo bash, logo depois de uma compilação | código 0 (502 passageiro tratado) |
+| 2610 reserva: smoke | PRONTO |
+| 2610 reserva: cenários | 31; 0 falhas depois de repetir contas-pagar (Help TAMINCOPAT, agora tratado); 6 pulados |
+| 2510 reserva: smoke | PRONTO, com o passo 5 (reinício) |
+| 2510 reserva: cenários | 31; 0 falhas; 5 pulados (`evidencias/2510/cenarios-20261106-213424`) |
+| Reinício do Windows (2 vezes) | as duas reservas voltaram sozinhas e healthy |
+| 2610 principal: smoke | PRONTO |
+| 2610 principal: cenários | 31; 1 falha passageira (pedido-venda-visualizar: Visualizar não abriu em 60 s), que passou 2 de 2 repetida; 1 pulado; 0 avisos da issue #21 |
+| 2510 principal: smoke | PRONTO |
+| 2510 principal: cenários | 31; 0 falhas (`evidencias/2510/cenarios-20261107-001437`) |
+| Imagem do lab reconstruída e `PLAB_LAB_DEV=0` | código novo dentro da imagem; smoke PRONTO na 2610 e na 2510 principais (`evidencias/2610/20261107-012718`, `evidencias/2510/20261107-013109`) |
+| Testes locais | `test_plab_fonte`, `test_plab_env`, unittest, `test_sessoes_saem`, `test_cenarios_json`, shellcheck: ok |
+
+Os testes `test_semear_volume`, `test_setup_estados` e `test_segredos_tmp` falham no Git Bash do
+Windows também no `main` limpo (links simbólicos e permissões). A CI roda esses testes em Linux.
+
 ## Fonte reserva (05/11/2026, issue #3; histórico, superado pela seção acima)
 
 - **Implementação:**
