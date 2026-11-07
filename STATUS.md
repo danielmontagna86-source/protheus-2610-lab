@@ -1,6 +1,6 @@
 # STATUS — Protheus 2610 Lab
 
-Última atualização: 2026-11-03 (correções L1–L9 da revisão em PR)
+Última atualização: 2026-11-07 (sequências de RECNO da 2610, issue #30)
 
 ## Fase atual
 
@@ -25,6 +25,8 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
   não vendorizada.
 - Renovação da data de troca de senha do Admin (`stacks/sql/renova-senha-admin.sql`): ver
   "Decisões de governança".
+- Ajuste das sequências de RECNO atrasadas da 2610 (`stacks/sql/ajusta-sequencias-recno.sql`),
+  autorizado pelo dono em 07/11/2026 ("pode corrigir a #30"): ver "Sequências de RECNO da 2610".
 
 ## Concluído (com evidência)
 
@@ -108,6 +110,34 @@ opencode fora desta versão por decisão do dono em 03/11/2026. Publicação pú
     usuário, e o lab não redistribui esses arquivos.
   - **Desvio que fica:** na reserva a base vem vazia (sem a base padrão). O Admin vem da base
     principal local; sem ela, a senha é definida à mão uma vez. Ver "Fonte reserva" abaixo.
+
+## Sequências de RECNO da 2610 (07/11/2026, issue #30)
+
+- Pedido do dono: "pode corrigir a #30" e "siga com a #30 até o final".
+- Causa, conferida só com leitura antes de mudar: na base da imagem 2610, 25 de 500 tabelas têm a
+  sequência do `R_E_C_N_O_` com o próximo valor menor ou igual ao maior RECNO gravado (`sys_usr`,
+  `sys_company`, `sys_pol_*`, `sys_app_param` etc.). Na 2510: 0 de 493.
+- Correção: `stacks/sql/ajusta-sequencias-recno.sql` faz `setval(seq, max(r_e_c_n_o_), true)` só
+  nas atrasadas, sem tocar nos dados. O `plab up` e o `plab restore` (bash e PowerShell) aplicam nas
+  releases de `PLAB_AJUSTAR_SEQUENCIAS` (padrão 2610) da fonte principal e gravam o que mudou em
+  `evidencias/<rel>/sequencias-<data>.txt`. `plab sequencias <rel> [ajustar]` confere ou ajusta à mão.
+- Evidência (cópia `antes_issue30` antes de tudo):
+
+| Verificação | Resultado |
+|---|---|
+| `plab sequencias 2610` / `2510` (bash e PowerShell), só leitura | 25 atrasadas / nenhuma; argumentos inválidos saem com 2 |
+| Inclusão em `sys_usr` com ROLLBACK, antes | `duplicate key value violates unique constraint "sys_usr_pk"` (RECNO 1) |
+| `plab restore 2610 antes_issue30` (bash) | "ajustadas em plab-2610: 25 tabela(s)", registro com 25 linhas; depois, nenhuma atrasada |
+| Inclusão em `sys_usr` com ROLLBACK, depois | `INSERT 0 1` |
+| `.\plab.ps1 restore 2610 antes_issue30` e `.\plab.ps1 up 2610` | 25 ajustadas; no `up` seguinte, "em dia" |
+| `./plab up 2610` | "sequencias de RECNO em dia" |
+| `al_usuario.py 2610` (Configurador, o caso da issue) | "Registro inserido com sucesso."; `labapr1` gravado com RECNO 2; base devolvida com `plab restore` (1 usuário, sequências em dia) |
+| `plab smoke 2610` | PRONTO (`evidencias/2610/20261107-075720`) |
+| `lab cenarios 2610` | 31; 0 falhas; 1 pulado; 1 refeito do login após o aviso da issue #21 (`evidencias/2610/cenarios-20261107-080118`) |
+| `test_plab_sequencias.sh` (novo, na CI), `test_plab_env`, `test_plab_fonte`, `test_plab_lab_dev` | ok |
+
+- Não verificado: a base da fonte reserva (criada pelo próprio Protheus); por isso o ajuste
+  automático não roda nela. `plab sequencias <rel>` confere se precisar.
 
 ## Fonte reserva: funcionando nas duas releases (06/11/2026, issue #3)
 
@@ -401,7 +431,7 @@ Windows também no `main` limpo (links simbólicos e permissões). A CI roda ess
 - Diferença entre releases: "Substituição de Aprovadores" é uma tela nova na 2610 e na 2510 exige
   Smart Schedule (Help `A230CONFIG`).
 - Base 2610: 25 sequências de RECNO atrasadas fazem a inclusão de usuário cair com chave duplicada
-  (issue #30); ajustadas só no banco do lab para o teste.
+  (issue #30); ajustadas só no banco do lab para o teste. Corrigido no `plab` em 07/11/2026.
 - `plab_pw.preencher_celula` passa a achar células em grade MVC (`wa-tgrid`).
 - Tela nova da 2610 (AL6, mesmo dia, pedido "siga até o final"): cópia `antes_subst_20261105`,
   alçada montada de novo pelos roteiros, transferência **pontual** do PC 000005 do aprovador de
@@ -470,7 +500,7 @@ Nenhum.
 
 - R1 login PO UI × TIR: confirmado (totvs/tir#2169); mitigado com Playwright.
 - R2 License Server exigir `/dev/mem` no WSL2: não ocorreu; override opcional mantido.
-- R3 imagens de comunidade sem licença declarada: digest fixo; reserva feliperaposo na 2610 (doctor OK, Admin sem senha pendente) e incompleta na 2510.
+- R3 imagens de comunidade sem licença declarada: digest fixo; reserva feliperaposo funcionando nas duas releases desde 06/11/2026 (smoke PRONTO e cenários sem falha).
 - R4 RAM das duas releases juntas: medida (~4,7 GB).
 - R5 licenças de desenvolvimento limitadas: sessões precisam sair pelo "Sair".
 

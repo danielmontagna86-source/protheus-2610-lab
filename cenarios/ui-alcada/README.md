@@ -23,8 +23,9 @@ Os códigos de usuário e de aprovador vêm da numeração do sistema, que **nã
 `plab restore`. Confira-os por SQL e passe por variável: `AL_USR` (usuário `labapr1`) nos
 aprovadores; `AL_APR_ADMIN` (se o Admin já for aprovador) e `AL_APR_TESTE` nos grupos.
 
-Na 2610, antes do passo 1, as sequências de RECNO atrasadas da base da imagem precisam ser
-ajustadas (issue #30); sem isso a inclusão do usuário cai com chave duplicada.
+Na 2610, a inclusão do usuário dependia das sequências de RECNO atrasadas da base da imagem
+(issue #30). Desde 07/11/2026 o `plab up` e o `plab restore` já as ajustam; para conferir:
+`plab sequencias 2610`.
 
 No fim: `plab restore <rel> <copia>`.
 
