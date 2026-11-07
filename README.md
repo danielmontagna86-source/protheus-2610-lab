@@ -78,6 +78,7 @@ Use o WebApp pela **porta multiprotocolo** (`.../webapp/`): no WebApp 26 a tela 
 | `plab restart <rel>` | — | reinicia só o AppServer e roda o doctor |
 | `plab inicializar <rel>` | — | só na fonte reserva: segue o assistente do Protheus na base vazia (empresa TESTE 99/01) até o login; o `plab up` já chama (ver [Fonte reserva](#fonte-reserva)) |
 | `plab snapshot <rel> [nome]` / `plab restore <rel> <nome>` | — | copia o volume do banco da release e volta para a cópia (a release fica parada durante a operação); `plab snapshots <rel>` lista, `plab snapshot-rm <rel> <nome>` apaga. Use antes de testes que gravam |
+| `plab sequencias <rel> [ajustar]` | — | confere, sem alterar nada, as sequências de RECNO atrasadas da base; com `ajustar`, adianta-as (o `plab up` e o `plab restore` já fazem isso na 2610, ver [Decisões técnicas](#decisões-técnicas-verificadas)) |
 | `plab setup` | `lab setup` | assistente de IA (ver abaixo) |
 | `plab includes 2510 <pasta>` | — | copia os includes (`.ch`) de uma pasta sua para o volume `includes-2510` do lab; a 2510 passa a compilar com eles. Nada vai para o repositório |
 | `plab scan` | — | varredura de segredos (git, imagem, container, evidências) |
@@ -263,6 +264,14 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
   `stacks/sql/renova-senha-admin.sql`, que atualiza só a **data** da última troca, nunca a senha,
   nas releases de `PLAB_RENOVAR_SENHA_ADMIN` (padrão: só 2510; vazio desliga). A senha do banco é
   lida dentro do container, nunca passada em linha de comando.
+- **Sequências de RECNO da 2610.** Na base da imagem 2610, 25 de 500 tabelas (`sys_usr`,
+  `sys_company`, `sys_pol_*` e outras) têm a sequência do `R_E_C_N_O_` com o próximo valor já usado.
+  Qualquer inclusão nelas, como a de um usuário pelo Configurador, cai com
+  `duplicate key value violates unique constraint` (issue #30). O `plab up` e o `plab restore`
+  aplicam `stacks/sql/ajusta-sequencias-recno.sql` nas releases de `PLAB_AJUSTAR_SEQUENCIAS`
+  (padrão: só 2610; vazio desliga). Ele só adianta cada sequência atrasada até o maior RECNO
+  gravado, sem tocar nos dados, e o que mudou fica em `evidencias/<rel>/sequencias-<data>.txt`.
+  A 2510 não tem o problema (0 de 493). `plab sequencias <rel>` confere sem alterar nada.
 - **Compilar na 2510 derruba o `/app-root`.** O AppServer 24.3 reinicia os servidores HTTP ao
   compilar e o REST ocupa a porta da interface nova. Por isso o smoke compila por último e o
   `plab smoke 2510` reinicia o AppServer no passo 5 (`PLAB_REINICIAR_APOS_COMPILAR`).
@@ -321,6 +330,7 @@ SmartView e container exclusivo. Nenhum serviço do lab usa `privileged`.
 | `plab up` sai com código 4 | porta ocupada | `plab ports`; troque a porta no `.env` |
 | WebApp mostra `json_context.cpp:963, 404` | acesso pela porta 4321 | use `http://127.0.0.1:<PORT_TCP>/webapp/` |
 | Login pede "Alterar senha" | prazo da política vencido | `plab up <rel>` renova a data |
+| Inclusão cai com `duplicate key value violates unique constraint "<tabela>_pk"` | sequência de RECNO atrasada na base da imagem (issue #30) | `plab sequencias <rel>` confere; `plab sequencias <rel> ajustar` corrige |
 | `lab compile` código 21 | RPO em uso (COMPILEERROR-300) | feche as sessões do ambiente de compilação |
 | `lab compile` código 22 | senha com `$` | ver Problemas conhecidos, item 2 |
 | `lab compile` código 23 | senha com caractere fora do CP1252 | troque a senha do Admin por uma só com caracteres CP1252 |

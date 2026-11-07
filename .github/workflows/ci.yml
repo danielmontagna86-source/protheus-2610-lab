@@ -68,6 +68,7 @@ jobs:
           bash lab/tests/test_semear_volume.sh
           bash lab/tests/test_plab_env.sh
           bash lab/tests/test_plab_fonte.sh
+          bash lab/tests/test_plab_sequencias.sh
           bash lab/tests/test_plab_lab_dev.sh
           bash lab/tests/test_smoke_limpeza.sh
           bash lab/tests/test_compile_entradas.sh
