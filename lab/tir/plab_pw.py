@@ -199,7 +199,19 @@ def entrar(pagina, url, ambiente, usuario, senha, tentativas=3):
             return login_po_ui(pagina, usuario, senha)
         except TimeoutError:
             # Repete se o iframe deu erro ou ficou preso no pre-carregamento (/preindex_...).
+            # Tambem repete quando o iframe do /app-root nem foi criado (visto na 2510 da fonte reserva
+            # em 06/11/2026, com o /app-root respondendo 200 logo depois).
             presos = [f.url for f in pagina.frames if f.url.startswith("chrome-error:") or "/preindex_" in f.url]
+            if not any("/app-root/" in f.url for f in pagina.frames):
+                presos.append("sem iframe do /app-root")
+            # 502 do HAProxy da fonte reserva dentro do iframe (logo depois de uma compilacao, na
+            # 2610, 06/11/2026): o iframe nao tenta de novo sozinho.
+            for f in pagina.frames:
+                try:
+                    if "/app-root/" in f.url and "Bad Gateway" in f.locator("body").inner_text(timeout=2_000):
+                        presos.append(f"502 em {f.url}")
+                except Exception:  # noqa: BLE001  (frame desanexado)
+                    continue
             if tentativa == tentativas or not presos:
                 raise
             pagina.wait_for_timeout(5_000 * tentativa)
@@ -291,7 +303,13 @@ def entrar_sessao(pagina, cfg, tentativas=1, espera_ms=60_000):
     'lab smoke', que refazem desde o login ao ver "aviso de requisicao" na saida.
     Diagnostico (issue #21, 05/11/2026): o 'Entrar' vai pelo websocket do WebApp, nao por HTTP. Com
     o aviso, 0 quadros enviados e 0 recebidos (5 de 5); sem aviso, 12 a 20 em cada sentido (29 de 29).
-    O WebApp desiste no navegador, antes de enviar. PLAB_DIAG_SESSAO=sim imprime tambem os logins bons."""
+    O WebApp desiste no navegador, antes de enviar. PLAB_DIAG_SESSAO=sim imprime tambem os logins bons.
+    Causa (06/11/2026, no JavaScript da tela, onSessionSettingSubmit): o 'Entrar' espera ~2,5 s o
+    formulario sair de "pending" (validacao assincrona dos codigos no servidor) e, se nao sair, mostra
+    o aviso sem enviar nada. Uma resposta de validacao que nao chega deixa o formulario pendente para
+    sempre; por isso clicar de novo nao resolvia. Preencher os codigos de novo na mesma tela tambem nao
+    resolveu (o Ambiente continuou bloqueado, testado em 06/11/2026): quem resolve e refazer desde o
+    login, como fazem o 'lab smoke' e o 'lab cenarios' (ate PLAB_REPETICOES_AVISO vezes)."""
     botao = cfg.get_by_role("button", name=re.compile(r"^\s*Entrar\s*$"))
 
     def aviso_visivel():
@@ -555,25 +573,27 @@ _JS_ABA = """(titulo) => {
 }"""
 
 
-def grade_carregada(pagina, timeout_ms=60_000):
+def grade_carregada(pagina, timeout_ms=60_000, aceitar_vazia=False):
     """Pos-condicao de 'browse carregado': uma grade (wa-tgrid) com mais de uma linha que esteja DE FATO
     visivel: o elemento no centro dela (elementFromPoint) precisa ser a propria grade ou um ancestral
     dela na cadeia de shadow hosts. Uma grade que existe no DOM mas esta coberta (tela em branco) nao
-    conta — verificado em 02/11/2026, quando a checagem so por tamanho deu falso positivo."""
+    conta — verificado em 02/11/2026, quando a checagem so por tamanho deu falso positivo.
+    aceitar_vazia=True (so na base vazia da fonte reserva): basta a linha do cabecalho."""
+    minimo = 0 if aceitar_vazia else 1
     try:
-        pagina.wait_for_function("""() => {
+        pagina.wait_for_function("""(minimo) => {
           const naCadeia = (alvo, topo) => { for (let n = alvo; n; n = n.parentNode || n.host) { if (n === topo) return true; } return false; };
           let ok = false;
           const deep = (root) => root.querySelectorAll('*').forEach(e => {
             if (!ok && e.tagName.toLowerCase() === 'wa-tgrid') {
               const b = e.getBoundingClientRect(); const linhas = (e.shadowRoot || e).querySelectorAll('tr').length;
-              if (b.width > 50 && b.height > 50 && linhas > 1) {
+              if (b.width > 50 && b.height > 50 && linhas > minimo) {
                 const topo = document.elementFromPoint(b.left + b.width / 2, b.top + Math.min(b.height / 2, 120));
                 if (topo && naCadeia(e, topo)) ok = true;
               }
             }
             if (!ok && e.shadowRoot) deep(e.shadowRoot); });
-          deep(document); return ok; }""", timeout=timeout_ms)
+          deep(document); return ok; }""", arg=minimo, timeout=timeout_ms)
         return True
     except Exception:  # noqa: BLE001
         return False

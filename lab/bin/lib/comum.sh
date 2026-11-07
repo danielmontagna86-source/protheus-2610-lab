@@ -33,3 +33,7 @@ senha_admin() {
 }
 
 carimbo() { date +%Y%m%d-%H%M%S; }
+
+# A release esta na fonte reserva (base vazia)? O appserver da reserva publica tambem o alias
+# appserver-<rel>-reserva na rede plab (stacks/reserva/<rel>/compose.yaml); a principal nao.
+fonte_reserva() { getent hosts "appserver-$1-reserva" >/dev/null 2>&1; }

@@ -11,7 +11,7 @@ plab status [alvo]            # estado por serviço + URLs locais
 plab logs <2610|2510|lab> [serviço]
 plab smoke <2610|2510>        # "lab smoke <release>" no container lab (+ passo 5 de recuperação)
 plab restart <2610|2510>      # reinicia só o AppServer, espera healthy e roda o doctor
-plab inicializar <2610|2510>  # só fonte reserva: assistente da base vazia até a tela de login
+plab inicializar <2610|2510>  # só fonte reserva: prepara a base vazia (4 etapas, ~10 min)
 plab snapshot <rel> [nome]    # copia o volume do Postgres da release para plab-<rel>_snap_<nome>
 plab snapshots <rel>          # lista as cópias (nome, tamanho, data)
 plab restore <rel> <nome>     # volta a base para a cópia (grava no banco do lab)
@@ -47,9 +47,17 @@ plab ports                    # mostra portas configuradas e se estão livres
     release na reserva. Se o lab estiver parado, só avisa.
   - `snapshot` e `restore` recusam a reserva com código 2.
   - A renovação da senha do Admin não roda na reserva.
-- `inicializar <rel>`: código 2 se a release não está na reserva, 3 se ela está parada, 5 se o
-  assistente falhou. O script vai para o container lab pela entrada padrão (bash) ou por
-  `docker cp` (PowerShell, que trocaria os acentos na entrada padrão).
+- `inicializar <rel>` (emenda de 06/11/2026): código 2 se a release não está na reserva, 3 se ela
+  está parada e 5 se alguma etapa falhou. As etapas, em ordem:
+  1. `lab/tir/inicializar_reserva.py <rel> assistente`.
+  2. Importação do Admin (`usr_id 000000`) da base principal local `plab-<rel>_pgdata`, por um
+     Postgres temporário sem rede da imagem principal. O registro passa só pela entrada padrão do
+     `psql`. Sem a base principal local, a etapa avisa e para.
+  3. `... configurador`.
+  4. `... primeiro-acesso`.
+
+  O script vai para o container lab pela entrada padrão (bash) ou por `docker cp` (PowerShell, que
+  trocaria os acentos na entrada padrão).
 - `snapshot`/`restore`/`snapshots`/`snapshot-rm` (emenda de 03/11/2026): copiam o volume inteiro do
   Postgres da release (`plab-<rel>_pgdata`) para um volume `plab-<rel>_snap_<nome>` (labels
   `com.plab.owner=plab`, `com.plab.snapshot=<rel>`, `com.plab.criada`) e de volta, com

@@ -43,6 +43,18 @@ def erros_do_cenario(c):
         e.append("'visualizar' e 'help' nao combinam (o Help substitui o browse)")
     if "parametros" in c and c["parametros"] != "ok":
         e.append(f"'parametros' so aceita \"ok\" (veio {c['parametros']!r})")
+    # Ajustes so para a fonte reserva (menu da base da imagem diferente): menu, aba e titulo.
+    if "reserva" in c:
+        r = c["reserva"]
+        if not isinstance(r, dict) or not r or set(r) - {"menu", "aba", "titulo"}:
+            e.append("'reserva' deve ser objeto com 'menu', 'aba' e/ou 'titulo'")
+        else:
+            if "menu" in r and (not isinstance(r["menu"], list) or not r["menu"] or not all(texto(m) for m in r["menu"])):
+                e.append("'reserva.menu' deve ser lista nao vazia de textos")
+            if "aba" in r and not texto(r["aba"]):
+                e.append("'reserva.aba' deve ser texto nao vazio")
+            if "titulo" in r and not isinstance(r["titulo"], str):
+                e.append("'reserva.titulo' deve ser texto")
     return e
 
 
@@ -64,6 +76,7 @@ def autoteste():
     bom = {"nome": "x", "rotina": "MATA010", "modulo": 5, "menu": ["A", "B"], "aba": "X", "releases": ["2610"]}
     assert validar({"cenarios": [bom]}) == [], "autoteste: reprovou cenario correto"
     casos = [dict(bom, modulo="5"), dict(bom, menu=[]), dict(bom, releases=["2410"]), dict(bom, aba=""), dict(bom, parametros="sim"), dict(bom, visualizar="sim"), dict(bom, visualizar=True, help="RECNO"),
+             dict(bom, reserva={"menu": []}), dict(bom, reserva={"tela": "x"}), dict(bom, reserva="x"),
              {k: v for k, v in bom.items() if k != "rotina"}]
     for ruim in casos:
         assert validar({"cenarios": [ruim]}), f"autoteste: aprovou cenario invalido {ruim}"

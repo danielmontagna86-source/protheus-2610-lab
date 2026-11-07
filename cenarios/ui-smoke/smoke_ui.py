@@ -54,11 +54,20 @@ with pw.navegador() as pg:
             print(f"[ui] aviso da base com '{aviso}' registrado e fechado com Esc (nada alterado)")
             ev.captura("aviso")
         if os.environ.get("PLAB_UI_PARAMETROS", "") == "ok":
+            # 'Novidades do Produto' pode vir ANTES da tela de parametros (Kardex Diario na 2510 da
+            # fonte reserva, 06/11/2026). Fecha com 'Fechar' (nada gravado) e segue.
+            if pw.fechar_novidades(pg, 5_000):
+                print("[ui] dialogo 'Novidades do Produto' antes dos parametros: Fechar (nada gravado)")
             if not pw.confirmar_parametros(pg):
                 raise AssertionError("tela 'Parametros' esperada nao apareceu")
             print("[ui] tela 'Parametros': OK com os valores padrao (nenhum campo alterado)")
         if pw.fechar_novidades(pg):
             print("[ui] dialogo 'Novidades do Produto': Fechar (nada gravado)")
+        # Base vazia da fonte reserva: no primeiro acesso a Contas a Pagar o dicionario da imagem
+        # mostra o Help TAMINCOPAT (tamanho de CQ8_CODIGO/CQ9_CODIGO). So informativo; fecha e segue.
+        if os.environ.get("PLAB_UI_BASE_VAZIA", "") == "sim" and pw.help_visivel(pg, "TAMINCOPAT", 3_000):
+            pw.fechar_help(pg, "TAMINCOPAT")
+            print("[ui] Help 'TAMINCOPAT' do dicionario da reserva: Fechar (nada gravado)")
         ajuda = os.environ.get("PLAB_UI_HELP", "")
         if ajuda:
             # Resultado esperado de rotinas que, na base de demonstracao, nao tem o que mostrar
@@ -79,9 +88,14 @@ with pw.navegador() as pg:
             confirmado = f"titulo '{titulo}'"
         else:
             # Browses MVC nao exibem titulo com ':'; a pos-condicao e a grade de dados carregada.
-            if not pw.grade_carregada(pg):
+            # Na base vazia da fonte reserva (PLAB_UI_BASE_VAZIA=sim) a grade so tem o cabecalho.
+            vazia = os.environ.get("PLAB_UI_BASE_VAZIA", "") == "sim"
+            if pw.grade_carregada(pg):
+                confirmado = "grade de dados carregada"
+            elif vazia and pw.grade_carregada(pg, 5_000, aceitar_vazia=True):
+                confirmado = "grade visivel sem registros (base vazia da fonte reserva)"
+            else:
                 raise AssertionError("grade do browse nao carregou")
-            confirmado = "grade de dados carregada"
         ev.captura("rotina")
         if os.environ.get("PLAB_UI_VISUALIZAR", "") == "1":
             formulario = pw.visualizar_registro(pg)
